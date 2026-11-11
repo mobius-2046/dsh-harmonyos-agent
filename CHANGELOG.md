@@ -6,6 +6,16 @@
 
 **README 重写为对外版本。** 按「能干什么 / 提供什么 / 开发思路 / 如何安装 / 如何使用 / 发版记录」六问重排，262 行压到 120 行；原来的 9 个坑、重启规则、schema 陷阱、已知边界与维护者注意事项整体移到 `docs/design-notes.md`，README 只留一行链接。
 
+## 0.7.0 — 2026-11-11
+
+**一次调用可以覆盖多台设备。** `deploy` / `run` / `logs` 的 `device` 接受 `all`（所有已连接设备）或逗号分隔的列表；每台设备的安装、启动、日志各自独立，一台失败不影响其余，结果按设备分块给出。`run` 只编译一次，安装与启动并行。
+
+**plan 模式下工具会拒绝动手。** `build` / `run` / `deploy` 在 plan 激活时直接返回原因（只读、需 `exit_plan_mode` 或 `/build`），不再靠人格提示自觉；`devices` / `logs` 仍可用。
+
+**HSP 依赖按层安装。** 安装共享包时按「依赖已满足的先进」迭代到没有进展为止（最多 8 轮），而不是固定 4 轮——依赖链比 4 层深时旧逻辑会误报安装失败（`nextMap` 依赖 `mapFunction` 就是这种）。
+
+**hilog 面板可以存快照并对比。** 工具栏新增「快照」与「对比」：快照按当前筛选结果存进浏览器本地（最多 6 份）；对比按行出现次数算新增/消失/相同，回答「修完这个错误后，它还会不会出现」。
+
 ## 0.6.5 — 2026-11-10
 
 **预设挂载修好了。** 0.6.1 的运行时注册其实一直被 cordis 拦在激活阶段：`cannot get property "agentPresets" without inject`——只写 `ctx.inject(['agentPresets'], …)` 不给访问权，服务必须进 `export const inject`。修好后 roster 实测为 `standard / ptc / minimal / cordis / harmony`，`harmony` 无 `broken`，`minimal` 仍在。

@@ -17,6 +17,7 @@ import {
   inferTarget,
   parseHvigorOutput,
   parseOutput,
+  parseTargets,
   signingState,
 } from '../lib/tools.js'
 
@@ -87,6 +88,28 @@ check('no schema node carries a boolean required or an untyped node', () => {
 check('description steers to action=run after edits', () => {
   assert.match(tool.description, /action=run/)
   assert.match(tool.description, /hvigor/)
+})
+
+check('description advertises multi-device work', () => {
+  assert.match(tool.description, /device="all"/)
+})
+
+check('parseTargets maps default, all and explicit lists', () => {
+  assert.deepEqual(parseTargets(['a', 'b'], undefined), { ids: ['a'], unknown: [] })
+  assert.deepEqual(parseTargets(['a', 'b'], 'all'), { ids: ['a', 'b'], unknown: [] })
+  assert.deepEqual(parseTargets(['a', 'b'], 'b,a'), { ids: ['b', 'a'], unknown: [] })
+  assert.deepEqual(parseTargets(['a', 'b'], 'a,c'), { ids: ['a'], unknown: ['c'] })
+  assert.deepEqual(parseTargets([], 'all'), { ids: [], unknown: [] })
+})
+
+check('plan mode refuses build/run/deploy before touching hvigor', async () => {
+  const guarded = createHarmonyTools({ planMode: { get: () => ({ active: true }) } })[0]
+  for (const action of ['build', 'run', 'deploy']) {
+    const result = await guarded.execute({ action }, {})
+    assert.equal(result.ok, false)
+    assert.equal(result.data.stage, 'plan-guard')
+    assert.match(result.summary, /plan/)
+  }
 })
 
 check('hvigor ERROR is parsed with its code, message and hints', () => {
@@ -238,6 +261,17 @@ check('plan-mode section is non-empty', () => {
   const section = planning.config.find((child) => child.name === '@deepseek-ai/dsh-plan-mode').config.section
   assert.ok(section.length > 500, `plan-mode section too small (${section.length} chars)`)
   assert.match(section, /exit_plan_mode/)
+})
+
+check('every t() key exists in both client dictionaries', () => {
+  const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  const keys = new Set([...source.matchAll(/\bt\('([A-Za-z][\w.]*)'/g)].map((match) => match[1]))
+  assert.ok(keys.size > 20, `only ${keys.size} keys found`)
+  const missing = [...keys].filter((key) => {
+    const pattern = new RegExp(`\\n\\s+'?${key.replace(/\./g, '\\.')}'?:\\s*'`, 'g')
+    return (source.match(pattern) ?? []).length < 2
+  })
+  assert.deepEqual(missing, [])
 })
 
 check('package.json declares engines.dsh and a semver version', () => {

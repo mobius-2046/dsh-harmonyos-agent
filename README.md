@@ -89,14 +89,20 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | action | 做的事 |
 |---|---|
 | `build` | `hvigorw assembleHap`（`hsp: true` 时再跑 `assembleHsp`），返回产物、是否已签名、结构化错误 |
-| `run` | build → 装包 →（HSP）补依赖 → `aa start` → 抓日志，五段结论 |
+| `run` | build → 装包 →（HSP）补依赖 → `aa start` → 抓日志，五段结论；plan 模式下拒绝执行 |
 | `devices` | 列出 `hdc` 设备 |
-| `deploy` | 装指定 `.hap`，可选拉起 |
-| `logs` | 限时抓取 `hdc shell hilog` |
+| `deploy` | 装指定 `.hap`，可选拉起；支持多设备 |
+| `logs` | 限时抓取 `hdc shell hilog`；支持多设备合并输出 |
 
 **4. 看真机日志**
 
 点侧边栏 **hilog**：选设备 → 先灌入最近 120 行 → 实时追加。按级别（默认关掉 Debug）、进程、关键字过滤都在浏览器里完成，不重连。
+
+复现问题前点 **快照** 存一份基准，修完再存一份，点 **对比** 选两份快照：按行出现次数报「新增 / 消失 / 相同」，一眼看出那条报错是否真的不再出现。
+
+**5. 多台设备一起**
+
+`deploy`、`run`、`logs` 的 `device` 传 `all` 走所有已连接设备，或传 `a,b` 指定几台。`run` 只编译一次，安装与启动按设备并行；一台失败不影响其余，结论按设备分块列出。
 
 **边界**：只支持 Windows（`tool-pwsh` 启用、`tool-bash` 关闭）；工程目录必须可写（hvigor 要写 `<project>/.hvigor` 和 `build/`）；未配置签名只会产出 unsigned，真机装不上；`run` 的「日志为空」是正常结果，不等于「没有崩溃」。
 
@@ -104,6 +110,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.7.0 | 多设备并行（`device=all` / 列表）；plan 模式下工具拒绝构建安装；HSP 依赖按层安装；hilog 快照与对比 |
 | 0.6.5 | 修好预设挂载（`agentPresets` 必须进 `export const inject`）、`/build` `/mode` 中文化、补文档与截图 |
 | 0.6.1 | 预设改为运行时注册，不再覆盖 `preset-minimal`；三模式补显式入口 |
 | 0.5.0 | 四工具合并为 `harmony`；新增端到端 `run`；HSP 工程可装；签名状态可见 |

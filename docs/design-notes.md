@@ -91,7 +91,7 @@ bundle 通过 `link:` 接入 profile，宿主在启动时 `import` 插件模块�
 - **仅 Windows 组合**：`tool-pwsh` 启用、`tool-bash` 关闭（`disabled: true`）。换平台时对调这两行。
 - **工具是 Host 级注册**：`harmony` 对所有预设可见，不只 harmony 预设。工具名带前缀，不会和内置工具冲突。
 - **UI 只加了日志面板**：三档"模式条"仍是内置的 `/plan`、`/goal` 命令和 composer 计划控件；自定义 ModeBar 是 v2。
-- **日志面板是只读的**：不解析崩溃栈、不做 grep 导出文件、不记忆上一次的设备；换设备或重启宿主后从「最近的 120 行」重新开始。
+- **日志面板不做分析**：不解析崩溃栈、不导出成文件、不记忆上一次的设备；不做跨设备时间对齐。快照与对比存在浏览器 `localStorage`（最多 6 份，每份最多 4000 行），清缓存即消失。
 - **工具只有五个动作**：没有 `scaffold`、`clean`、`ohpm install` 的专用动作，这些仍可直接用 `pwsh`（`harmony-ohpm` 技能写了等价命令）。
 - **签名是硬门槛**：`deploy` 只负责装包，签名配置缺失时 hvigor 会在构建阶段失败，错误会原样返回。
 - **技能正文随包分发**：注册时剥离 frontmatter 作为运行时技能，不依赖 profile 外的文件路径。
@@ -99,5 +99,14 @@ bundle 通过 `link:` 接入 profile，宿主在启动时 `import` 插件模块�
 ## 三个会咬人的地方
 
 1. **`inferTarget` 不能直接正则搜 `"srcPath"`。** 真实工程的 `build-profile.json5` 里常有注释掉的模块（`// "srcPath": "./DebugEntry"`），正则会选中它，于是 `module.json5` 读不到、`ability` 为空、`run` 静默跳过启动。现在先 `stripComments`，再在 `"modules"` 段里按 `"name" … "srcPath"` 配对并优先 `entry`。改这里务必用真实工程回归，别用脚手架生成的干净工程。
-2. **HSP 的安装顺序不是拓扑序。** 设备只报「下一个缺失的模块」（`common` 之后还有 `ArsenalModel` 之类），所以要把「装依赖 → 重试 entry」当成循环，而不是一次排序后批量装。实测 23 个 HSP 需要多轮才装完。
+2. **HSP 的安装顺序不是拓扑序。** 设备只报「下一个缺失的模块」（`common` 之后还有 `ArsenalModel` 之类），所以要把「装依赖 → 重试 entry」当成循环，而不是一次排序后批量装。实测 23 个 HSP 需要多轮才装完。轮数按**依赖深度**算，不是固定常数：`nextMap` 依赖 `mapFunction`，四轮不够，现在是「一直装到某轮没有新进展」最多 8 轮。
+2b. **`hdc install` 失败时退出码仍是 0。** 判断成功只能看输出里有没有 `success`；`exitCode === 0` 会把失败当成功。
+2c. **shared 模块没产物时，报错会伪装成设备问题。** `assembleHsp` 被并发构建打断时，某些 `type: "shared"` 模块没有 `.hsp`，装 entry 时却报 `dependent module does not exist`。`build` 现在会比对 `build-profile.json5` 里声明的 shared 模块与磁盘上的 `*-signed.hsp`，把缺的名字直接放进 `data.sharedModulesMissing` 与提示里。
 3. **`run` 的日志为空是正常的一种结果。** `hilog` 在缓冲未刷新时可能一行都没有；`run` 会明确说「日志为空」而不是「没有崩溃」，别把两者混为一谈。
+
+## 多设备与 plan 守卫
+
+- **编译一次，安装 N 次。** `run` 只调一次 hvigor（编译结果与设备无关），随后每台设备各起一条「装包 → 补 HSP → 拉起 → 抓日志」的 Promise，`Promise.all` 收口。单设备路径的输出保持原来的五段结构，多设备才加「N/M 成功」的表头与按设备分块——同一份文案不要为了多设备而把单设备变啰嗦。
+- **失败的设备不拖累成功的设备。** 每台设备的 `{installed, staged, started, crashed, logLines}` 都进 `data.devices`，`ok` 的判据是「至少一台装成功」，不是「全部成功」：多设备时总有一台可能没解锁或没空间。
+- **`device` 的三态**在 `parseTargets(connected, spec)` 里：缺省取第一台（保持旧行为）、`all` 取全部、逗号/空格列表只取交集并把未知 id 从 `unknown` 报回去——静默丢弃会让人以为装上了。
+- **plan 守卫放在 `execute` 的第一行**，早于 `resolveHvigorw` 和任何子进程：`planMode.get(agent).active` 为真时 `build/run/deploy` 直接返回 `stage: 'plan-guard'`。这样「只读」由工具强制，不依赖人格提示；也不要把它写成对 `args.action` 的字符串白名单之外的特判——`devices` / `logs` 必须仍然可用，否则 plan 阶段没法调研设备状态。

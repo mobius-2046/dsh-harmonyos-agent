@@ -27,6 +27,12 @@ window.__ModuleLoader__.load({
     const FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32]
     const FONT_DEFAULT = 32
     const FONT_KEY = 'harmony.logs.font'
+    /** Snapshots live per browser so a baseline survives panel remounts. */
+    const SNAPSHOT_KEY = 'harmony.logs.snapshots'
+    /** Kept snapshots; the oldest is dropped so storage stays bounded. */
+    const SNAPSHOTS_MAX = 6
+    /** Rows kept per snapshot; mirrors the live buffer bound. */
+    const SNAPSHOT_LINES_MAX = 4000
 
     /**
      * The stored log font size, or the default. Storage is best-effort: a
@@ -49,6 +55,72 @@ window.__ModuleLoader__.load({
       try {
         window.localStorage.setItem(FONT_KEY, String(value))
       } catch {}
+    }
+
+    /**
+     * Read stored snapshots, dropping anything that is not the expected shape.
+     * A blocked or corrupted store degrades to "no snapshots" rather than
+     * throwing inside render.
+     * @returns {{ id: string, at: string, device: string, lines: string[] }[]}
+     */
+    function readSnapshots() {
+      try {
+        const raw = window.localStorage.getItem(SNAPSHOT_KEY)
+        const parsed = raw === null ? [] : JSON.parse(raw)
+        if (!Array.isArray(parsed)) return []
+        return parsed.filter((entry) => entry !== null
+          && typeof entry === 'object'
+          && typeof entry.id === 'string'
+          && typeof entry.at === 'string'
+          && typeof entry.device === 'string'
+          && Array.isArray(entry.lines)
+          && entry.lines.every((line) => typeof line === 'string'))
+      } catch {
+        return []
+      }
+    }
+
+    /**
+     * Persist snapshots best-effort. Quota errors must not break the panel.
+     * @param {object[]} snapshots list to store.
+     */
+    function storeSnapshots(snapshots) {
+      try {
+        window.localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshots))
+      } catch {}
+    }
+
+    /**
+     * Compare two log snapshots as multisets of lines.
+     *
+     * A log is append-heavy and repeats similar lines, so a positional diff
+     * reports noise; counting line occurrences answers the question that
+     * matters after a fix ("did this message stop appearing?").
+     * @param {{ lines: string[] }} before baseline snapshot.
+     * @param {{ lines: string[] }} after snapshot to compare.
+     * @returns {{ added: string[], removed: string[], same: number }}
+     */
+    function diffSnapshots(before, after) {
+      const count = (lines) => {
+        const map = new Map()
+        for (const line of lines) map.set(line, (map.get(line) ?? 0) + 1)
+        return map
+      }
+      const left = count(before.lines)
+      const right = count(after.lines)
+      const added = []
+      const removed = []
+      let same = 0
+      for (const [line, occurrences] of right) {
+        const before_count = left.get(line) ?? 0
+        same += Math.min(occurrences, before_count)
+        for (let index = before_count; index < occurrences; index += 1) added.push(line)
+      }
+      for (const [line, occurrences] of left) {
+        const after_count = right.get(line) ?? 0
+        for (let index = after_count; index < occurrences; index += 1) removed.push(line)
+      }
+      return { added, removed, same }
     }
 
     const zh = {
@@ -86,6 +158,18 @@ window.__ModuleLoader__.load({
       compact: '紧凑视图',
       standard: '标准视图',
       save: '保存',
+      snapshot: '快照',
+      compare: '对比',
+      snapshotSaved: '已保存快照（{n} 行）',
+      snapshotsNone: '还没有快照。点「快照」把当前日志存一份，等复现后再对比。',
+      compareTitle: '对比两份快照',
+      compareBase: '基准',
+      compareTarget: '当前',
+      compareRun: '开始对比',
+      compareClose: '收起',
+      diffSummary: '新增 {added} 行，消失 {removed} 行，相同 {same} 行',
+      diffIdentical: '两份快照完全一致。',
+      diffTruncated: '（只显示前 {n} 行差异）',
       clear: '全部清除',
       fontSize: '字号',
       'col.time': '时间',
@@ -152,6 +236,18 @@ window.__ModuleLoader__.load({
       compact: 'Compact view',
       standard: 'Standard view',
       save: 'Save',
+      snapshot: 'Snapshot',
+      compare: 'Compare',
+      snapshotSaved: 'Snapshot saved ({n} lines)',
+      snapshotsNone: 'No snapshots yet. Take one before reproducing, another after, then compare.',
+      compareTitle: 'Compare two snapshots',
+      compareBase: 'Baseline',
+      compareTarget: 'Current',
+      compareRun: 'Compare',
+      compareClose: 'Hide',
+      diffSummary: '{added} new lines, {removed} gone, {same} unchanged',
+      diffIdentical: 'Both snapshots are identical.',
+      diffTruncated: '(showing the first {n} differing lines)',
       clear: 'Clear all',
       fontSize: 'Font size',
       'col.time': 'Time',
@@ -297,6 +393,14 @@ window.__ModuleLoader__.load({
       '.hl-empty .hl-empty-title{color:var(--dsw-alias-label-secondary);font-size:14px;line-height:22px}',
       '.hl-foot{color:var(--dsw-alias-label-tertiary);justify-content:space-between;align-items:center;gap:12px;min-height:20px;font-size:12px;line-height:20px;display:flex}',
       '.hl-foot-error{color:var(--dsw-alias-state-error-primary)}',
+      '.hl-compare{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;flex-direction:column;gap:8px;max-height:52%;padding:12px;display:flex}',
+      '.hl-compare-head{justify-content:space-between;align-items:center;gap:10px;display:flex;flex-wrap:wrap}',
+      '.hl-compare-title{margin:0;font-size:13px;font-weight:500;line-height:20px}',
+      '.hl-compare-row{align-items:center;gap:6px;display:flex;flex-wrap:wrap}',
+      '.hl-compare-hint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}',
+      '.hl-diff{min-height:64px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);border-radius:6px;flex:1;overflow:auto;padding:8px;font-family:var(--ds-font-family-code,ui-monospace,SFMono-Regular,Consolas,monospace);font-size:12px;line-height:1.55;white-space:pre-wrap}',
+      '.hl-diff-add{color:var(--dsw-alias-state-success-primary)}',
+      '.hl-diff-del{color:var(--dsw-alias-state-error-primary)}',
     ].join('')
 
     /**
@@ -377,6 +481,11 @@ window.__ModuleLoader__.load({
       const [lines, setLines] = React.useState([])
       const [total, setTotal] = React.useState(0)
       const [attempt, setAttempt] = React.useState(0)
+      const [snapshots, setSnapshots] = React.useState(readSnapshots)
+      const [compareOpen, setCompareOpen] = React.useState(false)
+      const [compareBase, setCompareBase] = React.useState('')
+      const [compareTarget, setCompareTarget] = React.useState('')
+      const [compareResult, setCompareResult] = React.useState(null)
 
       const surfaceRef = React.useRef(null)
       const idRef = React.useRef(0)
@@ -676,6 +785,47 @@ window.__ModuleLoader__.load({
         setRunning(!running)
       }
 
+      /**
+       * Freeze the filtered view into a named snapshot.
+       *
+       * The filter is applied first on purpose: "compare what I care about"
+       * beats re-deriving a filter in the diff view.
+       */
+      const takeSnapshot = () => {
+        const rows = visible.map(rowText)
+        if (rows.length === 0) return
+        const now = new Date()
+        const entry = {
+          id: `${now.getTime()}`,
+          at: now.toLocaleTimeString(undefined, { hour12: false }),
+          device: device === '' ? t('devicesNone') : device,
+          lines: rows.slice(-SNAPSHOT_LINES_MAX),
+        }
+        setSnapshots((current) => {
+          const next = [entry, ...current].slice(0, SNAPSHOTS_MAX)
+          storeSnapshots(next)
+          return next
+        })
+        setCompareResult(null)
+      }
+
+      const openCompare = () => {
+        setCompareOpen((open) => {
+          if (open) return false
+          const list = snapshots
+          if (list.length === 0) return true
+          setCompareTarget(list[0].id)
+          setCompareBase((list[1] ?? list[0]).id)
+          return true
+        })
+      }
+
+      const runCompare = () => {
+        const base = snapshots.find((entry) => entry.id === compareBase)
+        const target = snapshots.find((entry) => entry.id === compareTarget)
+        setCompareResult(base !== undefined && target !== undefined ? diffSnapshots(base, target) : null)
+      }
+
       const toggleLevel = (level) => setLevels((current) => ({ ...current, [level]: current[level] !== true }))
       const allLevelsOn = LEVELS.every((level) => levels[level] === true)
       const toggleAllLevels = () => {
@@ -901,6 +1051,18 @@ window.__ModuleLoader__.load({
         h('button', {
           className: 'hl-control',
           type: 'button',
+          disabled: visible.length === 0,
+          onClick: takeSnapshot,
+        }, t('snapshot')),
+        h('button', {
+          className: 'hl-control',
+          type: 'button',
+          'aria-pressed': compareOpen,
+          onClick: openCompare,
+        }, t('compare')),
+        h('button', {
+          className: 'hl-control',
+          type: 'button',
           onClick: () => {
             setLines([])
             setTotal(0)
@@ -922,6 +1084,47 @@ window.__ModuleLoader__.load({
           }, FONT_SIZES.map((size) => h('option', { key: size, value: String(size) }, `${size}px`))),
         ),
       ),
+      compareOpen ? h('section', { className: 'hl-compare' },
+        h('div', { className: 'hl-compare-head' },
+          h('h2', { className: 'hl-compare-title' }, t('compareTitle')),
+          h('button', { className: 'hl-control', type: 'button', onClick: openCompare }, t('compareClose')),
+        ),
+        snapshots.length === 0
+          ? h('p', { className: 'hl-compare-hint' }, t('snapshotsNone'))
+          : h('div', { className: 'hl-compare-row' },
+            h('label', { className: 'hl-font' },
+              h('span', null, t('compareBase')),
+              h('select', {
+                className: 'hl-control hl-select',
+                'aria-label': t('compareBase'),
+                value: compareBase,
+                onChange: (event) => setCompareBase(event.target.value),
+              }, snapshots.map((entry) => h('option', { key: entry.id, value: entry.id }, `${entry.at} · ${entry.device} · ${entry.lines.length}`)))),
+            h('label', { className: 'hl-font' },
+              h('span', null, t('compareTarget')),
+              h('select', {
+                className: 'hl-control hl-select',
+                'aria-label': t('compareTarget'),
+                value: compareTarget,
+                onChange: (event) => setCompareTarget(event.target.value),
+              }, snapshots.map((entry) => h('option', { key: entry.id, value: entry.id }, `${entry.at} · ${entry.device} · ${entry.lines.length}`)))),
+            h('button', { className: 'hl-control', type: 'button', onClick: runCompare }, t('compareRun')),
+          ),
+        compareResult === null ? null : h('div', { className: 'hl-diff' },
+          h('div', null, compareResult.added.length === 0 && compareResult.removed.length === 0
+            ? t('diffIdentical')
+            : t('diffSummary', {
+              added: compareResult.added.length,
+              removed: compareResult.removed.length,
+              same: compareResult.same,
+            })),
+          ...compareResult.added.slice(0, 120).map((line, index) => h('div', { key: `add-${index}`, className: 'hl-diff-add' }, `+ ${line}`)),
+          ...compareResult.removed.slice(0, 120).map((line, index) => h('div', { key: `del-${index}`, className: 'hl-diff-del' }, `- ${line}`)),
+          compareResult.added.length + compareResult.removed.length > 240
+            ? h('div', { className: 'hl-compare-hint' }, t('diffTruncated', { n: 240 }))
+            : null,
+        ),
+      ) : null,
       h('div', { className: 'hl-headrow' }, columns.map((key) => h('span', { key }, t(key)))),
       h('div', {
         className: 'hl-surface',
