@@ -14,6 +14,7 @@ import { apply, SKILLS } from '../index.js'
 import { harmonyPreset } from '../lib/preset.js'
 import {
   createHarmonyTools,
+  filterLogLines,
   findUiNode,
   flattenUi,
   inferTarget,
@@ -119,6 +120,15 @@ check('plan mode refuses build/run/deploy/app before touching hvigor', async () 
     assert.equal(result.data.stage, 'plan-guard')
     assert.match(result.summary, /plan/)
   }
+})
+
+check('log filtering supports substrings and /regex/flags', () => {
+  const lines = ['11-11 10:00 I A00000/xcommander: start', '11-11 10:01 E A00000/xcommander: boom Error 404', '11-11 10:02 I C02d13/HDC_LOG: task']
+  assert.equal(filterLogLines(lines, 'hdc_log').length, 1)
+  assert.equal(filterLogLines(lines, '/error/').length, 1)
+  assert.equal(filterLogLines(lines, '/ERROR|start/').length, 2)
+  assert.equal(filterLogLines(lines, '').length, 3)
+  assert.deepEqual(filterLogLines(lines, undefined), lines)
 })
 
 check('ui dump flattens a hierarchy and parses bounds', () => {

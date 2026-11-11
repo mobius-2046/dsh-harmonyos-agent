@@ -104,6 +104,10 @@ bundle 通过 `link:` 接入 profile，宿主在启动时 `import` 插件模块�
 2c. **shared 模块没产物时，报错会伪装成设备问题。** `assembleHsp` 被并发构建打断时，某些 `type: "shared"` 模块没有 `.hsp`，装 entry 时却报 `dependent module does not exist`。`build` 现在会比对 `build-profile.json5` 里声明的 shared 模块与磁盘上的 `*-signed.hsp`，把缺的名字直接放进 `data.sharedModulesMissing` 与提示里。
 3. **`run` 的日志为空是正常的一种结果。** `hilog` 在缓冲未刷新时可能一行都没有；`run` 会明确说「日志为空」而不是「没有崩溃」，别把两者混为一谈。
 
+## 日志过滤放在宿主机
+
+`hdc shell hilog` 是流式的，设备端没有稳定的「按关键字过滤再返回」的开关；先抓一段再在宿主机过滤，既不改变设备端命令，也允许同一个窗口内换关键字重看。一行没匹配时说明扫到了多少行，比直接报「没有日志」有用。
+
 ## uitest 的两个反直觉行为
 
 `uitest uiInput click/inputText/keyEvent` 成功时输出的是 `No Error`，用它做「有没有 error」的判断会把每次成功都判成失败，需要在匹配前把这个字符串剔掉。另外 `dumpLayout` 的 JSON 用 `cat` 读回来比 `file recv` 稳：抓取失败时不会在本地留下半截文件，也不用额外清理。

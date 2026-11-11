@@ -92,7 +92,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `run` | build → 装包 →（HSP）补依赖 → `aa start` → 抓日志，五段结论；plan 模式下拒绝执行 |
 | `devices` | 列出 `hdc` 设备 |
 | `deploy` | 装指定 `.hap`，可选拉起；支持多设备 |
-| `logs` | 限时抓取 `hdc shell hilog`；支持多设备合并输出 |
+| `logs` | 限时抓取 `hdc shell hilog`；支持多设备合并输出；`filter` 用子串或 `/regex/flags` 只留关心的行 |
 | `screenshot` | 抓一张设备截图存到本地临时目录，返回文件路径与分辨率 |
 | `app` | `op=start/stop/clear/uninstall` 启停应用、清数据、卸载 |
 | `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说 |
