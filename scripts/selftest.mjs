@@ -73,7 +73,7 @@ check('parameters is an object-root JSON Schema with action required', () => {
 })
 
 check('action enum covers build/run/devices/deploy/logs/screenshot/app/doctor/ui', () => {
-  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'crash', 'deploy', 'devices', 'doctor', 'file', 'logs', 'run', 'screenshot', 'ui'])
+  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'crash', 'deploy', 'deps', 'devices', 'doctor', 'file', 'logs', 'run', 'screenshot', 'ui'])
 })
 
 check('op covers the four app lifecycle operations and the five ui operations', () => {
@@ -113,9 +113,9 @@ check('parseTargets maps default, all and explicit lists', () => {
   assert.deepEqual(parseTargets([], 'all'), { ids: [], unknown: [] })
 })
 
-check('plan mode refuses build/run/deploy/app before touching hvigor', async () => {
+check('plan mode refuses build/compile/deps/run/deploy/app before touching hvigor', async () => {
   const guarded = createHarmonyTools({ planMode: { get: () => ({ active: true }) } })[0]
-  for (const action of ['build', 'run', 'deploy', 'app']) {
+  for (const action of ['build', 'compile', 'deps', 'run', 'deploy', 'app']) {
     const result = await guarded.execute({ action }, {})
     assert.equal(result.ok, false)
     assert.equal(result.data.stage, 'plan-guard')

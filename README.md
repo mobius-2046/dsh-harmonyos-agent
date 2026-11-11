@@ -20,7 +20,7 @@
 | 预设 `harmony` | 与 `standard` 同源的编码工具面（26 个组件），人格换成鸿蒙专家，内置 plan / goal / build 三模式所需件；运行时注册，不占用官方预设位 |
 | 命令 | `/build`（plan 停在半路时直接开工）、`/mode`（看当前 plan / goal 状态）、`/goal`（要求写清完成判据与验证方式）；`/plan` 是宿主内置 |
 | 技能 | `harmony-project`、`harmony-arkts`、`harmony-build-deploy`、`harmony-ohpm` |
-| 工具 | 一个 `harmony`，十二个动作：`build` / `compile` / `run` / `devices` / `deploy` / `logs` / `screenshot` / `app` / `doctor` / `ui` / `file` / `crash` |
+| 工具 | 一个 `harmony`，十三个动作：`build` / `compile` / `deps` / `run` / `devices` / `deploy` / `logs` / `screenshot` / `app` / `doctor` / `ui` / `file` / `crash` |
 | 日志面板 | 侧边栏 **hilog** 图标 → 全屏日志页 |
 
 三个模式不是三个 agent，而是同一个会话的三种状态：
@@ -99,6 +99,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `ui` | `op=dump` 读界面控件树；`tap` 按文字点、`input` 输入、`key` 按键、`swipe` 滑动 |
 | `file` | `op=pull` 把设备文件拉回本机、`op=send` 把本机文件推到设备 |
 | `crash` | 读设备上最新的崩溃日志（jscrash / cppcrash / appfreeze），可按包名筛选，提取进程、原因与栈顶帧 |
+| `deps` | `ohpm install --all`：改了 oh-package.json5 之后同步依赖，registry 或本地 .har 的问题当场说清 |
 
 **4. 看真机日志**
 
@@ -128,6 +129,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.15.0 | `deps`：`ohpm install --all`，把依赖问题从「构建时报找不到模块」提前到安装时 |
 | 0.12.0 | `compile`：只做 ArkTS 类型检查，约是完整构建的一半时间 |
 | 0.11.0 | `file`：在设备和本机之间收发文件，plan 下只允许 pull |
 | 0.10.x | `ui`：读控件树、按文字点击、输入、按键、滑动；`logs` 支持关键字与正则过滤 |
