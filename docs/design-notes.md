@@ -92,7 +92,7 @@ bundle 通过 `link:` 接入 profile，宿主在启动时 `import` 插件模块�
 - **工具是 Host 级注册**：`harmony` 对所有预设可见，不只 harmony 预设。工具名带前缀，不会和内置工具冲突。
 - **UI 只加了日志面板**：三档"模式条"仍是内置的 `/plan`、`/goal` 命令和 composer 计划控件；自定义 ModeBar 是 v2。
 - **日志面板不做分析**：不解析崩溃栈、不导出成文件、不记忆上一次的设备；不做跨设备时间对齐。快照与对比存在浏览器 `localStorage`（最多 6 份，每份最多 4000 行），清缓存即消失。
-- **工具只有五个动作**：没有 `scaffold`、`clean`、`ohpm install` 的专用动作，这些仍可直接用 `pwsh`（`harmony-ohpm` 技能写了等价命令）。
+- **工具动作的边界**：没有 `scaffold`、`ohpm install` 的专用动作（用 `pwsh`，`harmony-ohpm` 技能写了等价命令）；`clean` 只是 `build` 的开关。
 - **签名是硬门槛**：`deploy` 只负责装包，签名配置缺失时 hvigor 会在构建阶段失败，错误会原样返回。
 - **技能正文随包分发**：注册时剥离 frontmatter 作为运行时技能，不依赖 profile 外的文件路径。
 
@@ -111,6 +111,10 @@ bundle 通过 `link:` 接入 profile，宿主在启动时 `import` 插件模块�
 ## uitest 的两个反直觉行为
 
 `uitest uiInput click/inputText/keyEvent` 成功时输出的是 `No Error`，用它做「有没有 error」的判断会把每次成功都判成失败，需要在匹配前把这个字符串剔掉。另外 `dumpLayout` 的 JSON 用 `cat` 读回来比 `file recv` 稳：抓取失败时不会在本地留下半截文件，也不用额外清理。
+
+## `compile` 为什么要显式给 module
+
+`default@CompileArkTS` 是挂在模块上的任务，不带 `-p module=<name>@default` 时 hvigor 走到最后报 `task not found`，而且前面已经跑完 100 多秒的配置阶段——看起来像「编译很慢然后莫名失败」。所以 `module` 缺省时先用 `inferTarget` 取入口模块名（`basename(moduleDir)`）。它在同一工程上比完整构建快近一倍（46s vs 84s），因为它不做签名和 HAP 组装。
 
 ## 解析 build-profile.json5 的一个坑
 
