@@ -98,6 +98,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说 |
 | `ui` | `op=dump` 读界面控件树；`tap` 按文字点、`input` 输入、`key` 按键、`swipe` 滑动 |
 | `file` | `op=pull` 把设备文件拉回本机、`op=send` 把本机文件推到设备 |
+| `crash` | 读设备上最新的崩溃日志（jscrash / cppcrash / appfreeze），可按包名筛选，提取进程、原因与栈顶帧 |
 
 **4. 看真机日志**
 

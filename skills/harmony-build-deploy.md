@@ -19,6 +19,7 @@ whenToUse: Building a HAP, installing to a device or emulator, wiring signing, r
 | 想确认界面长什么样 | `harmony({ action: "screenshot" })` → 返回本地 JPEG 路径 |
 | 要点界面上的按钮/输入框 | `harmony({ action: "ui", op: "dump" })` 先看文字，再 `op: "tap", text: "登录"` |
 | 冷启动复测、清数据、卸载 | `harmony({ action: "app", op: "stop" / "clear" / "uninstall" })` |
+| 应用崩了，要看崩溃报告 | `harmony({ action: "crash", bundleName: "<包名>" })` |
 | 取设备上的文件（日志、db、截图源） | `harmony({ action: "file", op: "pull", remote: "/data/local/tmp/app.log" })` |
 | 一次覆盖所有已连接设备 | 上面任一带 `device: "all"` |
 

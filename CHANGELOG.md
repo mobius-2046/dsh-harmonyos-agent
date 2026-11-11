@@ -6,6 +6,12 @@
 
 **README 重写为对外版本。** 按「能干什么 / 提供什么 / 开发思路 / 如何安装 / 如何使用 / 发版记录」六问重排，262 行压到 120 行；原来的 9 个坑、重启规则、schema 陷阱、已知边界与维护者注意事项整体移到 `docs/design-notes.md`，README 只留一行链接。
 
+## 0.13.0 — 2026-11-11
+
+**新增 `crash` 动作。** 读 `/data/log/faultlog/faultlogger` 里最新的一份 `jscrash` / `cppcrash` / `appfreeze` 报告，`bundleName` 可按包名筛选；导出 `parseFaultLog` 提取进程名、`Reason:`、时间戳与栈顶 12 帧。没有匹配时列出最近的几份文件名，而不是只说「没找到」。
+
+实测：设备上 25 份崩溃日志，无筛选时返回最新的 `cppcrash-hilogd-…`（`Reason:Signal:SIGSEGV(SEGV_MAPERR)@0x…`）；按 `com.tze.xcommander` 筛选时如实报告「25 份里没有匹配的」。`npm test` 32/32。
+
 ## 0.12.0 — 2026-11-11
 
 **新增 `compile` 动作。** 只跑 ArkTS 类型检查（hvigor 的 `default@CompileArkTS`），不签名、不打包，返回同样的错误定位与警告计数。实测同一工程 46 秒，完整构建 84 秒——改完 .ets 想先看报错时不用等打包。
