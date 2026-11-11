@@ -17,7 +17,7 @@
 
 | 部件 | 内容 |
 |---|---|
-| 预设 `harmony` | 与 `standard` 同等能力的编码 agent，人格换成鸿蒙专家，内置三模式所需组件；运行时注册，不占用官方预设位 |
+| 预设 `harmony` | 与 `standard` 同源的编码工具面（26 个组件），人格换成鸿蒙专家，内置 plan / goal / build 三模式所需件；运行时注册，不占用官方预设位 |
 | 命令 | `/build`（plan 停在半路时直接开工）、`/mode`（看当前 plan / goal 状态）；`/plan`、`/goal` 是宿主内置 |
 | 技能 | `harmony-project`、`harmony-arkts`、`harmony-build-deploy`、`harmony-ohpm` |
 | 工具 | 一个 `harmony`，五个动作：`build` / `run` / `devices` / `deploy` / `logs` |
