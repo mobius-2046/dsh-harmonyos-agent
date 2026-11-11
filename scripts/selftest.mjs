@@ -16,6 +16,7 @@ import {
   createHarmonyTools,
   parseFaultLog,
   filterLogLines,
+  filterByPid,
   findUiNode,
   flattenUi,
   inferTarget,
@@ -121,6 +122,24 @@ check('plan mode refuses build/compile/deps/run/deploy/app before touching hvigo
     assert.equal(result.data.stage, 'plan-guard')
     assert.match(result.summary, /plan/)
   }
+})
+
+check('filterByPid keeps one process and its continuation lines', () => {
+  const lines = [
+    '11-11 10:00:01.000 11520 11520 I A03d00/JSAPP: app start',
+    '  at com.tze.Foo(Entry.ets:12)',
+    '11-11 10:00:01.100  1203 11557 I C02d13/HDC_LOG: hdc noise',
+    '  at system.Frame',
+    '11-11 10:00:02.000 11520 11600 E A03d00/JSAPP: boom',
+  ]
+  const kept = filterByPid(lines, 11520)
+  assert.equal(kept.length, 3)
+  assert.match(kept[0], /app start/)
+  // A stack frame inherits the decision of the record above it, so the frame
+  // under a dropped device line stays dropped.
+  assert.match(kept[1], /at com\.tze\.Foo/)
+  assert.match(kept[2], /boom/)
+  assert.deepEqual(filterByPid(lines, 9999), [])
 })
 
 check('log filtering supports substrings and /regex/flags', () => {

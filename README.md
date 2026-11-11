@@ -92,7 +92,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `run` | build → 装包 →（HSP）补依赖 → `aa start` → 抓日志，五段结论；plan 模式下拒绝执行 |
 | `devices` | 列出 `hdc` 设备 |
 | `deploy` | 装指定 `.hap`，可选拉起；支持多设备 |
-| `logs` | 限时抓取 `hdc shell hilog`；支持多设备合并输出；`filter` 用子串或 `/regex/flags` 只留关心的行 |
+| `logs` | 限时抓取 `hdc shell hilog`；给 `bundleName` 就解析 pid 只留这个应用的日志；支持多设备合并；`filter` 用子串或 `/regex/flags` |
 | `screenshot` | 抓一张设备截图存到本地临时目录，返回文件路径与分辨率 |
 | `app` | `op=start/stop/clear/uninstall` 启停应用、清数据、卸载 |
 | `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说 |
@@ -129,6 +129,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.16.0 | `logs` 按 pid 收敛：给包名就只看这个应用的行（栈帧跟着上一条记录保留） |
 | 0.15.0 | `deps`：`ohpm install --all`，把依赖问题从「构建时报找不到模块」提前到安装时 |
 | 0.12.0 | `compile`：只做 ArkTS 类型检查，约是完整构建的一半时间 |
 | 0.11.0 | `file`：在设备和本机之间收发文件，plan 下只允许 pull |
