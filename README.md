@@ -18,9 +18,9 @@
 | 部件 | 内容 |
 |---|---|
 | 预设 `harmony` | 与 `standard` 同源的编码工具面（26 个组件），人格换成鸿蒙专家，内置 plan / goal / build 三模式所需件；运行时注册，不占用官方预设位 |
-| 命令 | `/build`（plan 停在半路时直接开工）、`/mode`（看当前 plan / goal 状态）；`/plan`、`/goal` 是宿主内置 |
+| 命令 | `/build`（plan 停在半路时直接开工）、`/mode`（看当前 plan / goal 状态）、`/goal`（要求写清完成判据与验证方式）；`/plan` 是宿主内置 |
 | 技能 | `harmony-project`、`harmony-arkts`、`harmony-build-deploy`、`harmony-ohpm` |
-| 工具 | 一个 `harmony`，五个动作：`build` / `run` / `devices` / `deploy` / `logs` |
+| 工具 | 一个 `harmony`，十二个动作：`build` / `compile` / `run` / `devices` / `deploy` / `logs` / `screenshot` / `app` / `doctor` / `ui` / `file` / `crash` |
 | 日志面板 | 侧边栏 **hilog** 图标 → 全屏日志页 |
 
 三个模式不是三个 agent，而是同一个会话的三种状态：
@@ -28,7 +28,7 @@
 | 模式 | 进入方式 | 行为 |
 |---|---|---|
 | plan | `/plan` | 只读调研，产出方案，`exit_plan_mode` 提交审批 |
-| goal | `/goal <目标>` | 持久目标 + 自动续跑轮次 |
+| goal | `/goal <目标>；完成判据：<可观察结果>；验证方式：<命令>` | 持久目标 + 自动续跑；缺判据或验证方式会被拒绝 |
 | build | 关闭 plan 后的默认状态 | 直接改文件并构建验证 |
 
 ## 开发思路

@@ -105,6 +105,74 @@ export function apply(ctx) {
       },
     }))
 
+
+    // A goal without a stop condition turns into an endless "keep going".
+    // /goal refuses to create one unless the line says how completion is
+    // observed and how it is verified, so the round driver has something to
+    // test against instead of re-reading its own intent.
+    const STOP_CRITERIA = /(?:完成判据|验收标准|判定条件)\s*[:：]/u
+    const VERIFY_STEP = /(?:验证方式|验证方法|验证命令|怎么验证)\s*[:：]/u
+
+    modeCtx.effect(() => modeCtx.commands.register({
+      definitionId: '@local/dsh-harmony/goal',
+      name: 'goal',
+      description: '用带完成判据与验证方式的目标开始跨轮推进（Start a goal with a stop condition）',
+      input: { hint: '<目标>；完成判据：<可观察结果>；验证方式：<命令>' },
+      handler: (invocation) => {
+        const raw = String(invocation.rawInput ?? '').trim()
+        const agent = invocation.agent
+        if (!raw || raw === 'help') {
+          return {
+            kind: 'success',
+            text: [
+              '用法：/goal <要达成的目标>；完成判据：<可观察的结果>；验证方式：<命令或检查步骤>',
+              '',
+              '例：/goal 让 entry 支持深色模式；完成判据：设置页开关切换后首页背景变深；验证方式：harmony run 后在设置页截图对比',
+              '',
+              '没有完成判据的目标不该自动续跑——那样只会一直「继续」。/goal clear 结束当前目标。',
+            ].join('\n'),
+          }
+        }
+        if (raw === 'clear') {
+          const goal = modeCtx.goals.get(agent)
+          if (!goal) return { kind: 'success', text: '当前没有目标，无需 clear。' }
+          modeCtx.goals.clear(agent, { id: goal.id, revision: goal.revision })
+          return { kind: 'success', text: `已结束目标：${goal.objective}` }
+        }
+        if (raw.length < 12) {
+          return { kind: 'error', text: '目标太短，至少写清要做什么（12 字以上）以及完成判据与验证方式。' }
+        }
+        if (raw.length > 1200) {
+          return { kind: 'error', text: `目标太长（${raw.length} 字），压到 1200 字以内；细节留在仓库或文档里。` }
+        }
+        if (!STOP_CRITERIA.test(raw)) {
+          return {
+            kind: 'error',
+            text: '缺「完成判据：」——没有它，自动续跑只是在原地打转。\n补成：/goal <目标>；完成判据：<可观察的结果>；验证方式：<命令>',
+          }
+        }
+        if (!VERIFY_STEP.test(raw)) {
+          return { kind: 'error', text: '缺「验证方式：」——完成判据要靠什么命令或检查来确认？例如：harmony run 后在设备上看到 X。' }
+        }
+        const rounds = Number(/(?:轮次|上限)\s*[:：]\s*(\d{1,2})/u.exec(raw)?.[1] ?? 12)
+        const maxGoalRounds = Math.min(Math.max(rounds, 1), 40)
+        try {
+          const view = modeCtx.goals.create(agent, { objective: raw, maxGoalRounds })
+          return {
+            kind: 'success',
+            text: [
+              `已建立目标（最多 ${maxGoalRounds} 轮自动推进）：${raw}`,
+              '每轮结束前对照「完成判据」判断是否可以收尾；达成后用 complete 结束，不要靠「看起来差不多了」。',
+              '/mode 查看状态，/goal clear 结束。',
+            ].join('\n'),
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          return { kind: 'error', text: `没能建立目标：${message}\n若已有进行中的目标，先 /goal clear 或把它推进完。` }
+        }
+      },
+    }))
+
     modeCtx.effect(() => modeCtx.commands.register({
       definitionId: '@local/dsh-harmony/mode',
       name: 'mode',

@@ -285,6 +285,7 @@ check('every declared skill file exists with a non-empty body', () => {
 
 check('apply registers /build and /mode, and /build leaves plan mode', () => {
   const commands = []
+  const created = []
   let planActive = true
   const ctx = {
     effect: (fn) => fn(),
@@ -298,7 +299,14 @@ check('apply registers /build and /mode, and /build leaves plan mode', () => {
         return 'committed'
       },
     },
-    goals: { get: () => undefined },
+    goals: {
+      get: () => undefined,
+      create: (_agent, request) => {
+        created.push(request)
+        return { id: 'goal-test', revision: 1, ...request }
+      },
+      clear: () => ({ id: 'goal-test', revision: 2 }),
+    },
     connection: { fetch: { register() {} } },
     agentPresets: { register: async () => () => {} },
     inject: (_deps, fn) => fn(ctx),
@@ -315,6 +323,24 @@ check('apply registers /build and /mode, and /build leaves plan mode', () => {
   const again = build.handler({ agent: {}, rawInput: '', attachments: [] })
   assert.match(again.text, /已在 build 模式/, '/build in build mode should be a no-op message')
   assert.match(mode.handler({ agent: {}, rawInput: '', attachments: [] }).text, /当前模式/)
+
+  const goal = commands.find((command) => command.name === 'goal')
+  assert.ok(goal, '/goal is not registered')
+  const vago = goal.handler({ agent: {}, rawInput: '让首页支持深色模式', attachments: [] })
+  assert.equal(vago.kind, 'error')
+  assert.match(vago.text, /完成判据/)
+  const partial = goal.handler({ agent: {}, rawInput: '让首页支持深色模式；完成判据：切换后背景变深', attachments: [] })
+  assert.equal(partial.kind, 'error')
+  assert.match(partial.text, /验证方式/)
+  const good = goal.handler({
+    agent: {},
+    rawInput: '让首页支持深色模式；完成判据：切换后背景变深；验证方式：harmony run 后截图对比；轮次：6',
+    attachments: [],
+  })
+  assert.equal(good.kind, 'success', good.text)
+  assert.equal(created.length, 1)
+  assert.equal(created[0].maxGoalRounds, 6)
+  assert.match(created[0].objective, /完成判据/)
 })
 
 check('preset is registered at runtime, not as a Loader row', () => {
