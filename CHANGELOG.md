@@ -2,10 +2,6 @@
 
 只记会影响使用方式的变化。实现细节与踩坑记录在 `README.md`。
 
-## 0.6.2 — 2026-11-10
-
-**并发 hvigor 不再让构建「假装在跑」。** 子进程 stdin 一律关闭（`hvigorw` 的 `install pnpm? [y/N]`、`hap-sign-tool` 的交互输入都会让它挂到超时）；`assembleHsp` 遇到 `EBUSY ... build.log` 自动重试一次；两种情况都会给出明确提示。真机回归时发现 DevEco Studio 同时开着构建会争用同一份 `build.log`。
-
 ## 0.6.5 — 2026-11-10
 
 **预设挂载修好了。** 0.6.1 的运行时注册其实一直被 cordis 拦在激活阶段：`cannot get property "agentPresets" without inject`——只写 `ctx.inject(['agentPresets'], …)` 不给访问权，服务必须进 `export const inject`。修好后 roster 实测为 `standard / ptc / minimal / cordis / harmony`，`harmony` 无 `broken`，`minimal` 仍在。
@@ -18,9 +14,13 @@
 
 加入 `agentPresets` 硬依赖并用探针取证。
 
-## 0.6.3 / 0.6.2 — 2026-11-10（内部）
+## 0.6.3 — 2026-11-10（内部，失败）
 
-0.6.3 失败（缺 inject 声明），0.6.2 加并发构建防护（stdin 关闭、EBUSY 重试）。
+漏了 `inject` 声明，条目激活失败（`cannot get property "agentPresets" without inject`），未发布。
+
+## 0.6.2 — 2026-11-10
+
+**并发 hvigor 不再让构建「假装在跑」。** 子进程 stdin 一律关闭（`hvigorw` 的 `install pnpm? [y/N]`、`hap-sign-tool` 的交互输入都会让它挂到超时）；`assembleHsp` 遇到 `EBUSY ... build.log` 自动重试一次；两种情况都会给出明确提示。真机回归时发现 DevEco Studio 同时开着构建会争用同一份 `build.log`。
 
 ## 0.6.1 — 2026-11-10
 
