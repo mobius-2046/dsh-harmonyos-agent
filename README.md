@@ -247,3 +247,8 @@ parameters: objectSchema({
 1. **`inferTarget` 不能直接正则搜 `"srcPath"`。** 真实工程的 `build-profile.json5` 里常有注释掉的模块（`// "srcPath": "./DebugEntry"`），正则会选中它，于是 `module.json5` 读不到、`ability` 为空、`run` 静默跳过启动。现在先 `stripComments`，再在 `"modules"` 段里按 `"name" … "srcPath"` 配对并优先 `entry`。改这里务必用真实工程回归，别用脚手架生成的干净工程。
 2. **HSP 的安装顺序不是拓扑序。** 设备只报「下一个缺失的模块」，所以要把「装依赖 → 重试 entry」当成循环，而不是一次排序后批量装。
 3. **`run` 的日志为空是正常的一种结果。** `hilog` 在缓冲未刷新时可能一行都没有；`run` 会明确说「日志为空」而不是「没有崩溃」，别把两者混为一谈。
+
+## 许可
+
+MIT，见 [LICENSE](./LICENSE)。
+

@@ -2,6 +2,18 @@
   "name": "@local/dsh-harmony",
   "version": "0.6.5",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mobius-2046/dsh-harmonyos-agent.git"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "harmonyos",
+    "arkts",
+    "hvigor",
+    "hdc"
+  ],
   "description": "HarmonyOS app development plugin: a plan / goal / build agent preset, ArkTS and hvigor/hdc skills, one merged harmony tool (build/run/devices/deploy/logs), and a hilog log panel in the Web GUI.",
   "type": "module",
   "exports": {
