@@ -93,6 +93,8 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `devices` | 列出 `hdc` 设备 |
 | `deploy` | 装指定 `.hap`，可选拉起；支持多设备 |
 | `logs` | 限时抓取 `hdc shell hilog`；支持多设备合并输出 |
+| `screenshot` | 抓一张设备截图存到本地临时目录，返回文件路径与分辨率 |
+| `app` | `op=start/stop/clear/uninstall` 启停应用、清数据、卸载 |
 
 **4. 看真机日志**
 
@@ -103,6 +105,10 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 **5. 多台设备一起**
 
 `deploy`、`run`、`logs` 的 `device` 传 `all` 走所有已连接设备，或传 `a,b` 指定几台。`run` 只编译一次，安装与启动按设备并行；一台失败不影响其余，结论按设备分块列出。
+
+**6. 看一眼界面、关掉应用**
+
+`screenshot` 把当前画面存成 JPEG 并返回路径（可以多台一起抓），比让模型猜 UI 靠得住；`app` 用 `op=stop` 强停、`op=clear` 清数据、`op=uninstall` 卸载，验证「冷启动是否还会崩」时不用手点设备。
 
 **边界**：只支持 Windows（`tool-pwsh` 启用、`tool-bash` 关闭）；工程目录必须可写（hvigor 要写 `<project>/.hvigor` 和 `build/`）；未配置签名只会产出 unsigned，真机装不上；`run` 的「日志为空」是正常结果，不等于「没有崩溃」。
 

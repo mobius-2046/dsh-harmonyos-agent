@@ -1,7 +1,7 @@
 ---
 name: harmony-build-deploy
-description: Decision table for the harmony tool (build / run / devices / deploy / logs), the hvigorw and hdc commands behind it, artifact paths, signing, and the runtime pitfalls that produce opaque failures.
-whenToUse: Building a HAP, installing to a device or emulator, wiring signing, reading hilog after a failed run, or when a build/install fails with an opaque error. 编译不过、构建失败、装不上、真机签名报错、闪退要看日志时。
+description: Decision table for the harmony tool (build / run / devices / deploy / logs / screenshot / app), the hvigorw and hdc commands behind it, artifact paths, signing, and the runtime pitfalls that produce opaque failures.
+whenToUse: Building a HAP, installing to a device or emulator, wiring signing, reading hilog after a failed run, grabbing a screenshot, or when a build/install fails with an opaque error. 编译不过、构建失败、装不上、真机签名报错、闪退要看日志、想看真机界面时。
 ---
 
 # 构建、安装与日志
@@ -15,6 +15,9 @@ whenToUse: Building a HAP, installing to a device or emulator, wiring signing, r
 | 不确定设备在不在 | `harmony({ action: "devices" })` |
 | 已有 HAP，只想安装/拉起 | `harmony({ action: "deploy", hap, bundleName, ability })` |
 | 崩溃、闪退、启动失败取证 | `harmony({ action: "logs", bundleName, seconds: 10 })` |
+| 想确认界面长什么样 | `harmony({ action: "screenshot" })` → 返回本地 JPEG 路径 |
+| 冷启动复测、清数据、卸载 | `harmony({ action: "app", op: "stop" / "clear" / "uninstall" })` |
+| 一次覆盖所有已连接设备 | 上面任一带 `device: "all"` |
 
 `run` 已经包含 build + install + start + logs 四步，并会指出失败在哪一段；**不要再**用 `hdc_shell` / `hdc_install` / `start_app` 手工拼同一套流程，也不要跳过 `run` 直接猜日志。
 

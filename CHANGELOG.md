@@ -6,6 +6,12 @@
 
 **README 重写为对外版本。** 按「能干什么 / 提供什么 / 开发思路 / 如何安装 / 如何使用 / 发版记录」六问重排，262 行压到 120 行；原来的 9 个坑、重启规则、schema 陷阱、已知边界与维护者注意事项整体移到 `docs/design-notes.md`，README 只留一行链接。
 
+## 0.8.0 — 2026-11-11
+
+**`screenshot` 与 `app` 两个动作。** `screenshot` 在设备上 `snapshot_display` 抓图、拉回本地、删掉设备端临时文件，返回路径与分辨率（多设备时每台一张）；`app` 用 `op=start/stop/clear/uninstall` 启停应用、清数据、卸载。两者都支持 `device=all`。plan 模式下 `app` 也被拒绝，`screenshot` 与 `devices`/`logs` 仍可用（只读操作）。
+
+验证：两台设备上 `screenshot` 返回 2340x1080 的 JPEG；`app` 启动 `com.tze.xcommander` 成功。
+
 ## 0.7.0 — 2026-11-11
 
 **一次调用可以覆盖多台设备。** `deploy` / `run` / `logs` 的 `device` 接受 `all`（所有已连接设备）或逗号分隔的列表；每台设备的安装、启动、日志各自独立，一台失败不影响其余，结果按设备分块给出。`run` 只编译一次，安装与启动并行。

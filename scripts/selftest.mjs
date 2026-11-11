@@ -67,8 +67,12 @@ check('parameters is an object-root JSON Schema with action required', () => {
   assert.equal(schema.properties.action.type, 'string')
 })
 
-check('action enum covers build/run/devices/deploy/logs', () => {
-  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['build', 'deploy', 'devices', 'logs', 'run'])
+check('action enum covers build/run/devices/deploy/logs/screenshot/app', () => {
+  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'deploy', 'devices', 'logs', 'run', 'screenshot'])
+})
+
+check('app exposes the four lifecycle operations', () => {
+  assert.deepEqual([...tool.parameters.properties.op.enum].sort(), ['clear', 'start', 'stop', 'uninstall'])
 })
 
 check('output schema is object-root and requires action/ok/summary', () => {
@@ -102,14 +106,20 @@ check('parseTargets maps default, all and explicit lists', () => {
   assert.deepEqual(parseTargets([], 'all'), { ids: [], unknown: [] })
 })
 
-check('plan mode refuses build/run/deploy before touching hvigor', async () => {
+check('plan mode refuses build/run/deploy/app before touching hvigor', async () => {
   const guarded = createHarmonyTools({ planMode: { get: () => ({ active: true }) } })[0]
-  for (const action of ['build', 'run', 'deploy']) {
+  for (const action of ['build', 'run', 'deploy', 'app']) {
     const result = await guarded.execute({ action }, {})
     assert.equal(result.ok, false)
     assert.equal(result.data.stage, 'plan-guard')
     assert.match(result.summary, /plan/)
   }
+})
+
+check('screenshot and devices stay usable in plan mode', async () => {
+  const guarded = createHarmonyTools({ planMode: { get: () => ({ active: true }) } })[0]
+  const result = await guarded.execute({ action: 'devices' }, {})
+  assert.notEqual(result.data?.stage, 'plan-guard')
 })
 
 check('hvigor ERROR is parsed with its code, message and hints', () => {
