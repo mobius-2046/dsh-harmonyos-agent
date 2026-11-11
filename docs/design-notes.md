@@ -104,6 +104,10 @@ bundle 通过 `link:` 接入 profile，宿主在启动时 `import` 插件模块�
 2c. **shared 模块没产物时，报错会伪装成设备问题。** `assembleHsp` 被并发构建打断时，某些 `type: "shared"` 模块没有 `.hsp`，装 entry 时却报 `dependent module does not exist`。`build` 现在会比对 `build-profile.json5` 里声明的 shared 模块与磁盘上的 `*-signed.hsp`，把缺的名字直接放进 `data.sharedModulesMissing` 与提示里。
 3. **`run` 的日志为空是正常的一种结果。** `hilog` 在缓冲未刷新时可能一行都没有；`run` 会明确说「日志为空」而不是「没有崩溃」，别把两者混为一谈。
 
+## 解析 build-profile.json5 的一个坑
+
+模块声明长这样：`{ "name": "entry", "srcPath": "./entry", "targets": [{ "name": "default" }] }`。模块名在对象开头，`targets[].name` 又都叫 `default`。按「从 `name` 往后找 `srcPath`」的正则会先把上一个模块的 `targets[].name` 配到下一个模块的 `srcPath` 上，结果是全部报成 `default` —— 于是 `doctor` 说「缺产物：default」，真正缺的模块反而看不见。正确做法是从 `srcPath` 往回找它所属对象的 `name`（`lastIndexOf('{')` 之后 last match）。
+
 ## 多设备与 plan 守卫
 
 - **编译一次，安装 N 次。** `run` 只调一次 hvigor（编译结果与设备无关），随后每台设备各起一条「装包 → 补 HSP → 拉起 → 抓日志」的 Promise，`Promise.all` 收口。单设备路径的输出保持原来的五段结构，多设备才加「N/M 成功」的表头与按设备分块——同一份文案不要为了多设备而把单设备变啰嗦。

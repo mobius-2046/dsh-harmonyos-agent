@@ -95,6 +95,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `logs` | 限时抓取 `hdc shell hilog`；支持多设备合并输出 |
 | `screenshot` | 抓一张设备截图存到本地临时目录，返回文件路径与分辨率 |
 | `app` | `op=start/stop/clear/uninstall` 启停应用、清数据、卸载 |
+| `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说 |
 
 **4. 看真机日志**
 
@@ -109,6 +110,10 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 **6. 看一眼界面、关掉应用**
 
 `screenshot` 把当前画面存成 JPEG 并返回路径（可以多台一起抓），比让模型猜 UI 靠得住；`app` 用 `op=stop` 强停、`op=clear` 清数据、`op=uninstall` 卸载，验证「冷启动是否还会崩」时不用手点设备。
+
+**7. 构建失败前先体检**
+
+感觉「环境不对」时先跑 `doctor`，它把 hdc、设备、SDK、hvigorw、签名、shared 模块产物、ohpm 逐项标成 ✓ / ! / ✗，并说明每一项各自的处置；比从一条 hvigor 报错往回猜快。
 
 **边界**：只支持 Windows（`tool-pwsh` 启用、`tool-bash` 关闭）；工程目录必须可写（hvigor 要写 `<project>/.hvigor` 和 `build/`）；未配置签名只会产出 unsigned，真机装不上；`run` 的「日志为空」是正常结果，不等于「没有崩溃」。
 

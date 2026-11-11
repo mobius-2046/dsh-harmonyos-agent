@@ -6,6 +6,14 @@
 
 **README 重写为对外版本。** 按「能干什么 / 提供什么 / 开发思路 / 如何安装 / 如何使用 / 发版记录」六问重排，262 行压到 120 行；原来的 9 个坑、重启规则、schema 陷阱、已知边界与维护者注意事项整体移到 `docs/design-notes.md`，README 只留一行链接。
 
+## 0.9.0 — 2026-11-11
+
+**新增 `doctor` 动作。** 一次检查 hdc（版本与来源）、已连接设备、`DEVECO_SDK_HOME`、hvigorw 来源、签名配置、shared 模块是否都有 signed HSP 产物、ohpm、hvigor 隔离 home，每项给出 ✓ / ! / ✗ 与处置建议；只要有一项 ✗ 就 `ok=false`。plan 模式下可用（只读）。
+
+**修正 shared 模块的判定。** 之前按「`"name"` 之后 200 字符内出现 `srcPath`」配对，而每个模块的 `targets[].name` 都是 `default`，导致报出 `缺产物：default` 且真正缺的模块被漏掉；改成按 `srcPath` 所属对象的 `name` 配对，23 个 shared 模块全部对上。
+
+验证：`doctor` 在本机返回「环境检查全部通过」（23 个 shared 模块都有产物）；指向非工程目录时返回 1 项 ✗ 并说明原因。`npm test` 26/26。
+
 ## 0.8.0 — 2026-11-11
 
 **`screenshot` 与 `app` 两个动作。** `screenshot` 在设备上 `snapshot_display` 抓图、拉回本地、删掉设备端临时文件，返回路径与分辨率（多设备时每台一张）；`app` 用 `op=start/stop/clear/uninstall` 启停应用、清数据、卸载。两者都支持 `device=all`。plan 模式下 `app` 也被拒绝，`screenshot` 与 `devices`/`logs` 仍可用（只读操作）。

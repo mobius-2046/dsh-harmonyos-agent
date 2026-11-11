@@ -67,8 +67,8 @@ check('parameters is an object-root JSON Schema with action required', () => {
   assert.equal(schema.properties.action.type, 'string')
 })
 
-check('action enum covers build/run/devices/deploy/logs/screenshot/app', () => {
-  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'deploy', 'devices', 'logs', 'run', 'screenshot'])
+check('action enum covers build/run/devices/deploy/logs/screenshot/app/doctor', () => {
+  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'deploy', 'devices', 'doctor', 'logs', 'run', 'screenshot'])
 })
 
 check('app exposes the four lifecycle operations', () => {
@@ -114,6 +114,12 @@ check('plan mode refuses build/run/deploy/app before touching hvigor', async () 
     assert.equal(result.data.stage, 'plan-guard')
     assert.match(result.summary, /plan/)
   }
+})
+
+check('doctor is advertised and allowed while plan mode is active', async () => {
+  assert.match(tool.description, /doctor/)
+  const result = await tool.execute({ action: 'doctor', projectDir: process.cwd() }, { planMode: { get: () => ({ active: true }) } })
+  assert.notEqual(result.data?.stage, 'plan-guard')
 })
 
 check('screenshot and devices stay usable in plan mode', async () => {

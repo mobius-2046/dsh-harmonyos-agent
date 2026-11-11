@@ -1,7 +1,7 @@
 ---
 name: harmony-build-deploy
-description: Decision table for the harmony tool (build / run / devices / deploy / logs / screenshot / app), the hvigorw and hdc commands behind it, artifact paths, signing, and the runtime pitfalls that produce opaque failures.
-whenToUse: Building a HAP, installing to a device or emulator, wiring signing, reading hilog after a failed run, grabbing a screenshot, or when a build/install fails with an opaque error. 编译不过、构建失败、装不上、真机签名报错、闪退要看日志、想看真机界面时。
+description: Decision table for the harmony tool (build / run / devices / deploy / logs / screenshot / app / doctor), the hvigorw and hdc commands behind it, artifact paths, signing, and the runtime pitfalls that produce opaque failures.
+whenToUse: Building a HAP, installing to a device or emulator, wiring signing, reading hilog after a failed run, grabbing a screenshot, checking whether the toolchain is healthy, or when a build/install fails with an opaque error. 编译不过、构建失败、装不上、真机签名报错、闪退要看日志、想看真机界面、怀疑环境不对时。
 ---
 
 # 构建、安装与日志
@@ -10,6 +10,7 @@ whenToUse: Building a HAP, installing to a device or emulator, wiring signing, r
 
 | 场景 | 调用 |
 |---|---|
+| 环境不对、构建失败原因不明 | `harmony action=doctor` |
 | 改完 `.ets`，只想知道能不能编过 | `harmony({ action: "build" })` |
 | 编 → 装 → 起 → 抓日志，一次跑通 | `harmony({ action: "run" })` |
 | 不确定设备在不在 | `harmony({ action: "devices" })` |
