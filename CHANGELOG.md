@@ -6,6 +6,12 @@
 
 **README 重写为对外版本。** 按「能干什么 / 提供什么 / 开发思路 / 如何安装 / 如何使用 / 发版记录」六问重排，262 行压到 120 行；原来的 9 个坑、重启规则、schema 陷阱、已知边界与维护者注意事项整体移到 `docs/design-notes.md`，README 只留一行链接。
 
+## 0.12.0 — 2026-11-11
+
+**新增 `compile` 动作。** 只跑 ArkTS 类型检查（hvigor 的 `default@CompileArkTS`），不签名、不打包，返回同样的错误定位与警告计数。实测同一工程 46 秒，完整构建 84 秒——改完 .ets 想先看报错时不用等打包。
+
+`module` 不传时自动取入口模块（`inferTarget`），避免「task not found」；plan 模式下拒绝（会写 build 中间产物）。`npm test` 31/31。
+
 ## 0.11.0 — 2026-11-11
 
 **新增 `file` 动作。** `op=pull` 用 `hdc file recv` 把设备文件拉回本机（默认落到 `%TEMP%\dsh-harmony-files`，返回字节数），`op=send` 把本机文件推到设备；设备路径必须是绝对路径。plan 模式下只有 `pull` 可用，`send` 会被拒绝（它会改设备上的文件）。

@@ -72,7 +72,7 @@ check('parameters is an object-root JSON Schema with action required', () => {
 })
 
 check('action enum covers build/run/devices/deploy/logs/screenshot/app/doctor/ui', () => {
-  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'deploy', 'devices', 'doctor', 'file', 'logs', 'run', 'screenshot', 'ui'])
+  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'deploy', 'devices', 'doctor', 'file', 'logs', 'run', 'screenshot', 'ui'])
 })
 
 check('op covers the four app lifecycle operations and the five ui operations', () => {
@@ -129,6 +129,14 @@ check('log filtering supports substrings and /regex/flags', () => {
   assert.equal(filterLogLines(lines, '/ERROR|start/').length, 2)
   assert.equal(filterLogLines(lines, '').length, 3)
   assert.deepEqual(filterLogLines(lines, undefined), lines)
+})
+
+check('compile is refused in plan mode', async () => {
+  const [guarded] = createHarmonyTools({ planMode: { get: () => ({ active: true }) } })
+  const blocked = await guarded.execute({ action: 'compile', projectDir: process.cwd() }, {})
+  assert.equal(blocked.ok, false)
+  assert.equal(blocked.data.stage, 'plan-guard')
+  assert.match(blocked.summary, /plan/)
 })
 
 check('file action requires a remote path and guards send in plan mode', async () => {
