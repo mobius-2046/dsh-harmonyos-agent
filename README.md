@@ -127,6 +127,11 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.12.0 | `compile`：只做 ArkTS 类型检查，约是完整构建的一半时间 |
+| 0.11.0 | `file`：在设备和本机之间收发文件，plan 下只允许 pull |
+| 0.10.x | `ui`：读控件树、按文字点击、输入、按键、滑动；`logs` 支持关键字与正则过滤 |
+| 0.9.0 | `doctor`：一次检查工程、hdc、设备、SDK、hvigorw、签名、shared 产物、ohpm |
+| 0.8.0 | `screenshot` 抓真机屏幕；`app` 启停/清数据/卸载 |
 | 0.7.0 | 多设备并行（`device=all` / 列表）；plan 模式下工具拒绝构建安装；HSP 依赖按层安装；hilog 快照与对比 |
 | 0.6.5 | 修好预设挂载（`agentPresets` 必须进 `export const inject`）、`/build` `/mode` 中文化、补文档与截图 |
 | 0.6.1 | 预设改为运行时注册，不再覆盖 `preset-minimal`；三模式补显式入口 |
