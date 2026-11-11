@@ -1,0 +1,43 @@
+{
+  "name": "@local/dsh-harmony",
+  "version": "0.6.5",
+  "private": true,
+  "description": "HarmonyOS app development plugin: a plan / goal / build agent preset, ArkTS and hvigor/hdc skills, one merged harmony tool (build/run/devices/deploy/logs), and a hilog log panel in the Web GUI.",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib/*.js",
+    "scripts/*.mjs",
+    "cordis.patch.yml",
+    "skills/*.md",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node scripts/selftest.mjs"
+  },
+  "engines": {
+    "dsh": ">=0.2.1-rc.5 <0.3.0-0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  }
+}

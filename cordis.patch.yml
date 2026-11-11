@@ -1,0 +1,23 @@
+# HarmonyOS plugin patch.
+#
+# One row only: the Host half. It registers the four `harmony-*` skills on
+# `ctx.skills`, the merged `harmony` tool on `ctx.tools`, the `/build` and
+# `/mode` commands, and the hilog Fetch routes, so every preset that mounts
+# `dsh-tool-skill` can load the skills.
+#
+# The `harmony` agent preset is NOT declared here. A Loader row would make
+# `@deepseek-ai/dsh-agent-preset` resolve its child plugins through the profile
+# directory, whose node_modules does not carry the harness packages (only 33 of
+# the 106 `@deepseek-ai/*` packages, missing cordis itself and the whole
+# session/agent stack). Instead index.js registers the preset at runtime through
+# the Host `agentPresets` service, which mounts the children inside the
+# app.asar tree — the exact tree the shipped presets use. See lib/preset.js.
+#
+# The three "modes" are native session states, not three agents:
+#   plan  -> @deepseek-ai/dsh-plan-mode (read-only, ends through exit_plan_mode)
+#   goal  -> dsh-goal + dsh-tool-goal + dsh-command-goal (auto continuation rounds)
+#   build -> the default loop (write/edit/pwsh), no special state
+
+- insert:
+    - id: harmony-skills
+      name: '@local/dsh-harmony'

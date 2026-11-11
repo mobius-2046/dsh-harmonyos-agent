@@ -1,0 +1,257 @@
+// Regression checks for the parts of this bundle that break silently.
+//
+// Run with `npm test` (node scripts/selftest.mjs). It does not need a DSH
+// session: it asserts on the tool schema shapes, on the output parsers with
+// real-world samples, and on the shipped skill files. The one thing it cannot
+// cover is an actual hvigor build — do that once against a real project after
+// changing lib/tools.js.
+
+import assert from 'node:assert/strict'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { apply, SKILLS } from '../index.js'
+import { harmonyPreset } from '../lib/preset.js'
+import {
+  createHarmonyTools,
+  inferTarget,
+  parseHvigorOutput,
+  parseOutput,
+  signingState,
+} from '../lib/tools.js'
+
+const results = []
+// Optional: only used to parse cordis.patch.yml. Falls back to a regex check
+// when the dependency tree does not happen to ship a YAML parser.
+let YAML = null
+try {
+  YAML = (await import('yaml')).default
+} catch {
+  YAML = null
+}
+function check(name, fn) {
+  try {
+    fn()
+    results.push({ name, ok: true })
+  } catch (error) {
+    results.push({ name, ok: false, error: error instanceof Error ? error.message : String(error) })
+  }
+}
+
+/** Walk a JSON Schema and fail on the DSL/payload mistakes that broke agents. */
+function scanSchema(node, path, problems) {
+  if (node === null || typeof node !== 'object') return
+  if (Array.isArray(node)) {
+    node.forEach((item, index) => scanSchema(item, `${path}[${index}]`, problems))
+    return
+  }
+  if (typeof node.required === 'boolean') problems.push(`${path}.required is a boolean, must be an array`)
+  if (node.type === undefined && (node.properties || node.items)) problems.push(`${path} has no type`)
+  for (const [key, value] of Object.entries(node)) scanSchema(value, `${path}.${key}`, problems)
+}
+
+const tools = createHarmonyTools({})
+const tool = tools[0]
+
+check('registry exposes exactly one tool named harmony', () => {
+  assert.equal(tools.length, 1)
+  assert.equal(tool.name, 'harmony')
+})
+
+check('parameters is an object-root JSON Schema with action required', () => {
+  const schema = tool.parameters
+  assert.equal(schema.type, 'object')
+  assert.ok(Array.isArray(schema.required), 'required must be an array')
+  assert.ok(schema.required.includes('action'))
+  assert.equal(schema.properties.action.type, 'string')
+})
+
+check('action enum covers build/run/devices/deploy/logs', () => {
+  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['build', 'deploy', 'devices', 'logs', 'run'])
+})
+
+check('output schema is object-root and requires action/ok/summary', () => {
+  const schema = tool.output.schema
+  assert.equal(schema.type, 'object')
+  assert.ok(Array.isArray(schema.required))
+  for (const key of ['action', 'ok', 'summary']) assert.ok(schema.required.includes(key), `missing required ${key}`)
+})
+
+check('no schema node carries a boolean required or an untyped node', () => {
+  const problems = []
+  scanSchema(tool.parameters, 'parameters', problems)
+  scanSchema(tool.output.schema, 'output', problems)
+  assert.deepEqual(problems, [])
+})
+
+check('description steers to action=run after edits', () => {
+  assert.match(tool.description, /action=run/)
+  assert.match(tool.description, /hvigor/)
+})
+
+check('hvigor ERROR is parsed with its code, message and hints', () => {
+  const parsed = parseHvigorOutput([
+    '> hvigor ERROR: Failed :entry:default@CompileArkTS...',
+    '> hvigor ERROR: 00304004 Not Found',
+    'Error Message: Module "entry" not found in build-profile.json5.',
+    '* Try the following:',
+    '  > Check the module name in build-profile.json5',
+  ])
+  assert.ok(parsed.errors.length >= 1)
+  const coded = parsed.errors.find((error) => error.code === '00304004')
+  assert.ok(coded, 'expected the coded hvigor error')
+  assert.match(String(coded.message), /Not Found/)
+  assert.match(String(coded.detail ?? ''), /Module "entry" not found/)
+  assert.ok(parsed.hints.some((hint) => /module name/.test(hint)))
+})
+
+check('ArkTS file:line:column is extracted', () => {
+  const parsed = parseHvigorOutput(['ERROR: ArkTS:ERROR File: C:\\app\\entry\\src\\main\\ets\\pages\\Index.ets:42:7'])
+  const arkts = parsed.errors.find((error) => error.source === 'arkts')
+  assert.ok(arkts, 'expected an arkts entry')
+  assert.equal(arkts.line, 42)
+  assert.equal(arkts.column, 7)
+})
+
+check('ohpm failures become structured errors', () => {
+  const parsed = parseOutput(['ohpm ERROR: Fetch local file failed, ENOENT: no such file, open C:\\libs\\x.har'])
+  assert.ok(parsed.errors.some((error) => error.source === 'ohpm'))
+})
+
+check('hdc install failures become structured errors', () => {
+  const parsed = parseOutput(['[Fail]Error: failed to install bundle, code:9568322'])
+  assert.ok(parsed.errors.some((error) => error.source === 'hdc'))
+})
+
+const sandbox = mkdtempSync(join(tmpdir(), 'dsh-harmony-selftest-'))
+function writeProject({ signing }) {
+  mkdirSync(join(sandbox, 'AppScope'), { recursive: true })
+  mkdirSync(join(sandbox, 'entry', 'src', 'main'), { recursive: true })
+  writeFileSync(join(sandbox, 'AppScope', 'app.json5'), '{ "app": { "bundleName": "com.example.demo" } }')
+  writeFileSync(join(sandbox, 'build-profile.json5'), [
+    '{',
+    '  "app": {',
+    `    ${signing ? '"signingConfigs": [ { "name": "default", "material": { "certpath": "a.cer", "profile": "a.p7b" } } ],' : '"signingConfigs": [],'}`,
+    '    "products": [{ "name": "default" }]',
+    '  },',
+    '  "modules": [{ "name": "entry", "srcPath": "./entry" }]',
+    '}',
+  ].join('\n'))
+  writeFileSync(join(sandbox, 'entry', 'src', 'main', 'module.json5'), '{ "module": { "mainElement": "EntryAbility", "abilities": [{ "name": "EntryAbility" }] } }')
+}
+
+check('signingState sees a configured material block', () => {
+  writeProject({ signing: true })
+  assert.equal(signingState(sandbox).configured, true)
+})
+
+check('signingState reports an empty signingConfigs as not configured', () => {
+  writeProject({ signing: false })
+  assert.equal(signingState(sandbox).configured, false)
+})
+
+check('inferTarget reads bundleName and mainElement', () => {
+  writeProject({ signing: true })
+  const target = inferTarget(sandbox)
+  assert.equal(target.bundleName, 'com.example.demo')
+  assert.equal(target.ability, 'EntryAbility')
+})
+
+check('every declared skill file exists with a non-empty body', () => {
+  assert.ok(SKILLS.length >= 4)
+  for (const skill of SKILLS) {
+    const raw = readFileSync(new URL(skill.file, new URL('../index.js', import.meta.url)), 'utf8')
+    const body = raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '')
+    assert.ok(body.length > 200, `${skill.name} body too small (${body.length} chars)`)
+    assert.match(raw, new RegExp(`name: ${skill.name}`), `${skill.name} frontmatter name mismatch`)
+    assert.ok(skill.whenToUse.length > 30, `${skill.name} needs a whenToUse`)
+  }
+})
+
+check('apply registers /build and /mode, and /build leaves plan mode', () => {
+  const commands = []
+  let planActive = true
+  const ctx = {
+    effect: (fn) => fn(),
+    skills: { register() {} },
+    tools: { register() {} },
+    commands: { register: (command) => commands.push(command) },
+    planMode: {
+      get: () => ({ active: planActive }),
+      set: (_agent, active) => {
+        planActive = active
+        return 'committed'
+      },
+    },
+    goals: { get: () => undefined },
+    connection: { fetch: { register() {} } },
+    agentPresets: { register: async () => () => {} },
+    inject: (_deps, fn) => fn(ctx),
+  }
+  apply(ctx)
+  const build = commands.find((command) => command.name === 'build')
+  const mode = commands.find((command) => command.name === 'mode')
+  assert.ok(build, '/build is not registered')
+  assert.ok(mode, '/mode is not registered')
+  const output = build.handler({ agent: {}, rawInput: '', attachments: [] })
+  assert.equal(output.kind, 'success')
+  assert.equal(planActive, false, '/build must leave plan mode')
+  assert.match(output.text, /已退出 plan 模式/, '/build should say plan mode was left')
+  const again = build.handler({ agent: {}, rawInput: '', attachments: [] })
+  assert.match(again.text, /已在 build 模式/, '/build in build mode should be a no-op message')
+  assert.match(mode.handler({ agent: {}, rawInput: '', attachments: [] }).text, /当前模式/)
+})
+
+check('preset is registered at runtime, not as a Loader row', () => {
+  const source = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8')
+  assert.doesNotMatch(source, /preset-minimal/, 'the shipped minimal row must not be overridden')
+  if (YAML) {
+    const doc = YAML.parse(source)
+    const inserted = doc.flatMap((row) => row.insert ?? [])
+    assert.deepEqual(inserted.map((row) => row.id), ['harmony-skills'])
+  }
+  const index = readFileSync(new URL('../index.js', import.meta.url), 'utf8')
+  assert.match(index, /agentPresets\.register\(harmonyPreset\)/)
+})
+
+check('preset definition carries a mountable plugin set', () => {
+  assert.equal(harmonyPreset.id, 'harmony')
+  assert.ok(harmonyPreset.name && harmonyPreset.description, 'preset needs a display name and description')
+  assert.ok(harmonyPreset.plugins.length >= 15, `preset only has ${harmonyPreset.plugins.length} rows`)
+  const names = []
+  const walk = (rows) => {
+    for (const row of rows) {
+      if (row.group) walk(row.config)
+      else names.push(row.name)
+    }
+  }
+  walk(harmonyPreset.plugins)
+  assert.ok(!names.some((name) => name.endsWith('/list-agents')), 'that subpath is absent from the package exports')
+  for (const name of names) assert.match(name, /^(@deepseek-ai\/|@local\/|cordis:)/, `suspicious plugin name ${name}`)
+  const plan = names.filter((name) => name === '@deepseek-ai/dsh-plan-mode')
+  assert.equal(plan.length, 1, 'plan-mode must be mounted exactly once')
+})
+
+check('plan-mode section is non-empty', () => {
+  const planning = harmonyPreset.plugins.find((row) => row.group && row.config.some((child) => child.name === '@deepseek-ai/dsh-plan-mode'))
+  assert.ok(planning, 'planning group missing')
+  const section = planning.config.find((child) => child.name === '@deepseek-ai/dsh-plan-mode').config.section
+  assert.ok(section.length > 500, `plan-mode section too small (${section.length} chars)`)
+  assert.match(section, /exit_plan_mode/)
+})
+
+check('package.json declares engines.dsh and a semver version', () => {
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+  assert.match(pkg.version, /^\d+\.\d+\.\d+$/)
+  assert.ok(pkg.engines?.dsh, 'engines.dsh missing — an incompatible DSH would load this silently')
+  assert.equal(pkg.scripts?.test, 'node scripts/selftest.mjs')
+})
+
+rmSync(sandbox, { recursive: true, force: true })
+
+const failed = results.filter((result) => !result.ok)
+for (const result of results) {
+  console.log(`${result.ok ? 'ok  ' : 'FAIL'}  ${result.name}${result.ok ? '' : `\n      ${result.error}`}`)
+}
+console.log(`\n${results.length - failed.length}/${results.length} passed`)
+process.exit(failed.length === 0 ? 0 : 1)

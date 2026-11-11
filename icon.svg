@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="HarmonyOS">
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#0a59f7"/>
+  <g fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round">
+    <path d="M18 46V26"/>
+    <path d="M32 46V18"/>
+    <path d="M46 46V32"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="18" cy="20" r="3.5"/>
+    <circle cx="32" cy="12" r="3.5"/>
+    <circle cx="46" cy="26" r="3.5"/>
+  </g>
+</svg>
