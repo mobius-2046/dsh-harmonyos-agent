@@ -96,6 +96,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `screenshot` | 抓一张设备截图存到本地临时目录，返回文件路径与分辨率 |
 | `app` | `op=start/stop/clear/uninstall` 启停应用、清数据、卸载 |
 | `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说 |
+| `ui` | `op=dump` 读界面控件树；`tap` 按文字点、`input` 输入、`key` 按键、`swipe` 滑动 |
 
 **4. 看真机日志**
 
@@ -110,6 +111,8 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 **6. 看一眼界面、关掉应用**
 
 `screenshot` 把当前画面存成 JPEG 并返回路径（可以多台一起抓），比让模型猜 UI 靠得住；`app` 用 `op=stop` 强停、`op=clear` 清数据、`op=uninstall` 卸载，验证「冷启动是否还会崩」时不用手点设备。
+
+要操作界面就再加一步 `ui`：`op=dump` 把控件树拍平成「类型 + 文字 + 是否可点 + 坐标」，`op=tap` 直接按文字点击（`text: "登录"`），`op=input` 往焦点或指定坐标输入，`op=key` 发 Back/Home，`op=swipe` 翻列表。截图负责「看见」，`ui` 负责「点到」，两者合起来才是完整的界面回归。
 
 **7. 构建失败前先体检**
 

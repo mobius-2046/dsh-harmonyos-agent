@@ -14,7 +14,10 @@ import { apply, SKILLS } from '../index.js'
 import { harmonyPreset } from '../lib/preset.js'
 import {
   createHarmonyTools,
+  findUiNode,
+  flattenUi,
   inferTarget,
+  parseBounds,
   parseHvigorOutput,
   parseOutput,
   parseTargets,
@@ -67,12 +70,14 @@ check('parameters is an object-root JSON Schema with action required', () => {
   assert.equal(schema.properties.action.type, 'string')
 })
 
-check('action enum covers build/run/devices/deploy/logs/screenshot/app/doctor', () => {
-  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'deploy', 'devices', 'doctor', 'logs', 'run', 'screenshot'])
+check('action enum covers build/run/devices/deploy/logs/screenshot/app/doctor/ui', () => {
+  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'deploy', 'devices', 'doctor', 'logs', 'run', 'screenshot', 'ui'])
 })
 
-check('app exposes the four lifecycle operations', () => {
-  assert.deepEqual([...tool.parameters.properties.op.enum].sort(), ['clear', 'start', 'stop', 'uninstall'])
+check('op covers the four app lifecycle operations and the five ui operations', () => {
+  const values = [...tool.parameters.properties.op.enum]
+  for (const value of ['start', 'stop', 'clear', 'uninstall']) assert.ok(values.includes(value), value)
+  for (const value of ['dump', 'tap', 'input', 'key', 'swipe']) assert.ok(values.includes(value), value)
 })
 
 check('output schema is object-root and requires action/ok/summary', () => {
@@ -114,6 +119,29 @@ check('plan mode refuses build/run/deploy/app before touching hvigor', async () 
     assert.equal(result.data.stage, 'plan-guard')
     assert.match(result.summary, /plan/)
   }
+})
+
+check('ui dump flattens a hierarchy and parses bounds', () => {
+  const tree = { attributes: {}, children: [
+    { attributes: { text: '登录', type: 'Button', clickable: 'true', bounds: '[100,200][300,260]', visible: 'true' }, children: [] },
+    { attributes: { text: '', type: 'Column', clickable: 'false', bounds: '[0,0][10,10]' }, children: [
+      { attributes: { text: '忘记密码', type: 'Text', clickable: 'false', bounds: '[10,20][110,60]' }, children: [] },
+    ] },
+  ] }
+  const nodes = flattenUi(tree)
+  assert.equal(nodes.length, 2)
+  assert.deepEqual(nodes[0].bounds, { x1: 100, y1: 200, x2: 300, y2: 260, x: 200, y: 230 })
+  assert.equal(nodes[1].text, '忘记密码')
+  assert.equal(findUiNode(nodes, '忘记').text, '忘记密码')
+})
+
+check('ui tap is refused while plan mode is active but dump is allowed', async () => {
+  const planCtx = { planMode: { get: () => ({ active: true }) } }
+  const tapped = await tool.execute({ action: 'ui', op: 'tap', text: '登录' }, planCtx)
+  assert.equal(tapped.ok, false)
+  assert.equal(tapped.data.stage, 'plan-guard')
+  const dumped = await tool.execute({ action: 'ui', op: 'dump' }, planCtx)
+  assert.notEqual(dumped.data?.stage, 'plan-guard')
 })
 
 check('doctor is advertised and allowed while plan mode is active', async () => {

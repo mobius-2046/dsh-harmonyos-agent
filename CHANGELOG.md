@@ -6,6 +6,12 @@
 
 **README 重写为对外版本。** 按「能干什么 / 提供什么 / 开发思路 / 如何安装 / 如何使用 / 发版记录」六问重排，262 行压到 120 行；原来的 9 个坑、重启规则、schema 陷阱、已知边界与维护者注意事项整体移到 `docs/design-notes.md`，README 只留一行链接。
 
+## 0.10.0 — 2026-11-11
+
+**新增 `ui` 动作。** `op=dump` 用 `uitest dumpLayout` 抓控件树，拍平成「类型 + 文字 + 可点 + 坐标」并只保留有文字或可点的节点（原始 JSON 约 20 KB，多数是空布局容器）；`op=tap` 按文字找控件点中心（找不到会提示先 dump）；`op=input` 往当前焦点或指定坐标输入；`op=key` 发 Back/Home/Power；`op=swipe` 滑动。plan 模式下只有 `dump` 可用，其余会被拦。
+
+验证：真机上 dump 出登录页 12 个节点／8 个可点；`tap text="取消"` 从「人员选择」页返回登录页；`key Back` 可用。`npm test` 28/28。
+
 ## 0.9.0 — 2026-11-11
 
 **新增 `doctor` 动作。** 一次检查 hdc（版本与来源）、已连接设备、`DEVECO_SDK_HOME`、hvigorw 来源、签名配置、shared 模块是否都有 signed HSP 产物、ohpm、hvigor 隔离 home，每项给出 ✓ / ! / ✗ 与处置建议；只要有一项 ✗ 就 `ok=false`。plan 模式下可用（只读）。

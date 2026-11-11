@@ -1,6 +1,6 @@
 ---
 name: harmony-build-deploy
-description: Decision table for the harmony tool (build / run / devices / deploy / logs / screenshot / app / doctor), the hvigorw and hdc commands behind it, artifact paths, signing, and the runtime pitfalls that produce opaque failures.
+description: Decision table for the harmony tool (build / run / devices / deploy / logs / screenshot / app / doctor / ui), the hvigorw and hdc commands behind it, artifact paths, signing, and the runtime pitfalls that produce opaque failures.
 whenToUse: Building a HAP, installing to a device or emulator, wiring signing, reading hilog after a failed run, grabbing a screenshot, checking whether the toolchain is healthy, or when a build/install fails with an opaque error. 编译不过、构建失败、装不上、真机签名报错、闪退要看日志、想看真机界面、怀疑环境不对时。
 ---
 
@@ -17,6 +17,7 @@ whenToUse: Building a HAP, installing to a device or emulator, wiring signing, r
 | 已有 HAP，只想安装/拉起 | `harmony({ action: "deploy", hap, bundleName, ability })` |
 | 崩溃、闪退、启动失败取证 | `harmony({ action: "logs", bundleName, seconds: 10 })` |
 | 想确认界面长什么样 | `harmony({ action: "screenshot" })` → 返回本地 JPEG 路径 |
+| 要点界面上的按钮/输入框 | `harmony({ action: "ui", op: "dump" })` 先看文字，再 `op: "tap", text: "登录"` |
 | 冷启动复测、清数据、卸载 | `harmony({ action: "app", op: "stop" / "clear" / "uninstall" })` |
 | 一次覆盖所有已连接设备 | 上面任一带 `device: "all"` |
 
