@@ -19,6 +19,7 @@ import { lookupApi, readDoc, searchDocs } from '../lib/docs.js'
 import { explain } from '../lib/errorcodes.js'
 import { waitUntil } from '../lib/wait.js'
 import { inspectCertificate, parseSigningConfigs, signingReport } from '../lib/signing.js'
+import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
 import {
   createHarmonyTools,
   parseFaultLog,
@@ -708,6 +709,26 @@ await checkAsync('diagnostic budget ends the pass on the shared deadline', async
   assert.equal((await tight.probe('again', async () => 3)).status, 'ok')
   assert.ok(tight.remaining() < 400)
   assert.ok(tight.elapsedMs >= 60, 'the timed-out probe still spends its time')
+})
+
+check('build lock refuses a live holder and reclaims a dead one', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-lock-'))
+  try {
+    const first = acquireBuildLock(dir)
+    assert.equal(first.ok, true)
+    const second = acquireBuildLock(dir, { pid: 4242 })
+    assert.equal(second.ok, false)
+    assert.equal(second.holder.pid, process.pid)
+    assert.equal(releaseBuildLock(second.path, { pid: 4242 }), false, 'another pid cannot release our lock')
+    assert.equal(releaseBuildLock(first.path), true)
+    writeFileSync(lockPath(dir), JSON.stringify({ pid: 999999, startedAt: Date.now() - 60_000 }))
+    const third = acquireBuildLock(dir)
+    assert.equal(third.ok, true)
+    assert.match(String(third.reclaimed), /已退出/)
+    assert.equal(releaseBuildLock(third.path), true)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 const failed = results.filter((result) => !result.ok)

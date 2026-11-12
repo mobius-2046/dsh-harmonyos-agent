@@ -6,9 +6,10 @@
 
 ## 进行中 / 下一步
 
-### 1. 并发构建防护
-DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.log`，报 `EBUSY`，随后是一串误导性的 `getName` 报错，错误冒到签名阶段才显现。
-做法：构建前探测 `.hvigor` 是否被占用；被占用时等待或明确提示「关掉 DevEco 的构建」，而不是让它变成签名失败。
+### 1. 并发构建防护（0.24.0 已交付本工具自身的锁）
+DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.log`，报 `EBUSY`，随后是一串误导性的 `getName` 报错，错误冒到签名阶段才显现。自己发两个构建（`build` 与 `run` 并行）也会互相踩。
+已做：`<工程>/.hvigor/dsh-harmony.build.lock` 抢锁，第二个构建立即返回持有者与已持有时长；pid 已退出或超过 30 分钟视为残留并接管；`finally` 释放。
+未做：与 DevEco 的构建协调只能靠 EBUSY 探测（自动重试一次 + 提示），没有跨进程协议可用。
 
 ### 2. `run` 的失败归因
 现在失败会给四段结论，但「下一步怎么办」要模型自己推。

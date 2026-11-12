@@ -162,3 +162,11 @@ const.product.model / const.product.software.version / const.ohos.apiversion
 `op=api` 只信 SDK 自己的 `.d.ts`：`@since` 标签就在声明上方几十行内，向上找 60 行即可；找不到就返回 `unknown`，不猜。`op=read` 先做根目录前缀校验（`insideRoots`），否则 `file=../../secret` 能读走任意文件。
 
 配置默认落在 `~/.dsh/dsh-harmony.json`，写入用临时文件 + `rename`，避免写一半的 JSON 让下次启动读配置时炸掉；环境变量 `DSH_HARMONY_DOCS_DIRS` 优先于文件，方便临时换一套文档。
+
+## 并发构建：锁能管什么，管不了什么
+
+`build` 在 `<project>/.hvigor/dsh-harmony.build.lock` 上抢锁，写 `{pid, startedAt}`。第二个构建看到锁时按三条判断：pid 不在了 → 接管；持有超过 30 分钟 → 接管；否则拒绝，并把持有者与已持有时长写进 summary。释放放在 `finally`，异常路径也不留。
+
+为什么用「自己的锁文件」而不是探测 `build-logs/build.log`：那个句柄由 hvigor 持有，Windows 上多数情况下仍允许再打开，探测会给出「没被占用」的假阴性；而两个本工具构建互相踩是确定会发生的（agent 同时发 `build` 与 `run`），先把这个堵住。
+
+管不了 DevEco Studio：它没有锁协议可用，只能靠 EBUSY 事后识别——一次自动重试 + 一句「关掉 DevEco 里的构建」。锁也不跨机器，设备/工程在共享盘上时同样只在本机生效。
