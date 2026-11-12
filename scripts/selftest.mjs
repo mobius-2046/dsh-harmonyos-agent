@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { apply, SKILLS } from '../index.js'
 import { harmonyPreset } from '../lib/preset.js'
+import { createBudget } from '../lib/budget.js'
 import { parseDeviceInfo } from '../lib/deviceinfo.js'
 import { lookupApi, readDoc, searchDocs } from '../lib/docs.js'
 import { explain } from '../lib/errorcodes.js'
@@ -597,6 +598,45 @@ check('package.json declares engines.dsh and a semver version', () => {
 })
 
 rmSync(sandbox, { recursive: true, force: true })
+
+async function checkAsync(name, fn) {
+  try {
+    await fn()
+    results.push({ name, ok: true })
+  } catch (error) {
+    results.push({ name, ok: false, error: error instanceof Error ? error.message : String(error) })
+  }
+}
+
+await checkAsync('diagnostic budget separates ok, timeout, skipped and error', async () => {
+  const budget = createBudget(10_000, { perProbeMs: 80 })
+  const fast = await budget.probe('fast', async () => 42)
+  assert.equal(fast.status, 'ok')
+  assert.equal(fast.value, 42)
+
+  const slow = await budget.probe('slow', () => new Promise(() => {}))
+  assert.equal(slow.status, 'timeout')
+  assert.match(slow.detail, /80ms/)
+
+  const boom = await budget.probe('boom', async () => {
+    throw new Error('nope')
+  })
+  assert.equal(boom.status, 'error')
+  assert.match(boom.detail, /nope/)
+
+  const spent = createBudget(0, { perProbeMs: 80 })
+  assert.equal((await spent.probe('never', async () => 1)).status, 'skipped')
+  assert.equal(budget.probes.length, 3)
+})
+
+await checkAsync('diagnostic budget ends the pass on the shared deadline', async () => {
+  const tight = createBudget(400, { perProbeMs: 60 })
+  assert.equal((await tight.probe('fast', async () => 1)).status, 'ok')
+  assert.equal((await tight.probe('slow', () => new Promise(() => {}))).status, 'timeout')
+  assert.equal((await tight.probe('again', async () => 3)).status, 'ok')
+  assert.ok(tight.remaining() < 400)
+  assert.ok(tight.elapsedMs >= 60, 'the timed-out probe still spends its time')
+})
 
 const failed = results.filter((result) => !result.ok)
 for (const result of results) {

@@ -20,7 +20,7 @@
 | 预设 `harmony` | 与 `standard` 同源的编码工具面（26 个组件），人格换成鸿蒙专家，内置 plan / goal / build 三模式所需件；运行时注册，不占用官方预设位 |
 | 命令 | `/build`（plan 停在半路时直接开工）、`/mode`（看当前 plan / goal 状态）、`/goal`（要求写清完成判据与验证方式）；`/plan` 是宿主内置 |
 | 技能 | `harmony-project`、`harmony-arkts`、`harmony-build-deploy`、`harmony-ohpm` |
-| 工具 | 一个 `harmony`，十三个动作：`build` / `compile` / `deps` / `run` / `devices` / `deploy` / `logs` / `screenshot` / `app` / `doctor` / `ui` / `file` / `crash` |
+| 工具 | 一个 `harmony`，十四个动作：`build` / `compile` / `deps` / `run` / `devices` / `deploy` / `logs` / `screenshot` / `app` / `doctor` / `ui` / `file` / `crash` / `docs` |
 | 日志面板 | 侧边栏 **hilog** 图标 → 全屏日志页 |
 | 设备徽标 | 侧边栏左下角的小手机图标：绿色胶囊=在线台数；点开是每台的机型、序列号、API、电量、温度、内存与存储占用 |
 
@@ -123,7 +123,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 
 **7. 构建失败前先体检**
 
-感觉「环境不对」时先跑 `doctor`，它把 hdc、设备、SDK、hvigorw、签名、shared 模块产物、ohpm 逐项标成 ✓ / ! / ✗，并说明每一项各自的处置；比从一条 hvigor 报错往回猜快。
+感觉「环境不对」时先跑 `doctor`，它把 hdc、设备、SDK、hvigorw、签名、shared 模块产物、ohpm 逐项标成 ✓ / ! / ✗ / ⏱（超时）/ …（没来得及跑），并说明每一项各自的处置；比从一条 hvigor 报错往回猜快。外部探测每项限时 2 秒、整轮 8 秒预算，所以它会回来——包括环境本身出问题的时候。
 
 **8. 查不到就查文档（可离线）**
 
@@ -150,6 +150,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.21.0 | `doctor` 每项探测限时 2 秒、整轮 8 秒预算，超时与「没来得及跑」分开报 |
 | 0.20.0 | 离线文档可配置：`docs` 的 config / search / read / api（`@since` 版本查询），搜索有预算并如实报告 |
 | 0.19.0 | 错误码给出处置建议（同码不同义分开判）、记住上次使用的设备、`ui op=find` 只查不点 |
 | 0.18.0 | 设备徽标修好样式（此前只在日志面板里挂载 CSS），并展示机型、电量、温度、内存、存储 |
