@@ -18,6 +18,7 @@ import { parseDeviceInfo } from '../lib/deviceinfo.js'
 import { lookupApi, readDoc, searchDocs } from '../lib/docs.js'
 import { explain } from '../lib/errorcodes.js'
 import { waitUntil } from '../lib/wait.js'
+import { assertUi, uiFingerprint } from '../lib/uiassert.js'
 import { inspectCertificate, parseSigningConfigs, signingReport } from '../lib/signing.js'
 import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
 import { attributeFailure } from '../lib/attribute.js'
@@ -236,8 +237,7 @@ check('doctor exposes an opt-in fix switch that only repairs proven damage', () 
   assert.match(fix.description, /Defaults to false/)
 })
 
-check('a stale build lock is reclaimed, a live one is left alone', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'dsh-harmony-lock-'))
+check('a stale build lock is reclaimed, a live one is left alone', () => {  const dir = mkdtempSync(join(tmpdir(), 'dsh-harmony-lock-'))
   mkdirSync(join(dir, '.hvigor'), { recursive: true })
   writeFileSync(lockPath(dir), JSON.stringify({ pid: 999999, startedAt: Date.now() }))
   const stale = acquireBuildLock(dir)
@@ -253,6 +253,32 @@ check('a stale build lock is reclaimed, a live one is left alone', () => {
   assert.equal(second.holder.pid, process.pid)
   releaseBuildLock(live.path)
   rmSync(dir, { recursive: true, force: true })
+})
+
+check('the screen digest ignores traversal order but notices a changed screen', () => {
+  const nodes = [
+    { type: 'Text', text: '设置', clickable: true, bounds: { x: 10, y: 20, width: 100, height: 40 } },
+    { type: 'Button', text: '返回', clickable: true, bounds: { x: 0, y: 0, width: 50, height: 30 } },
+  ]
+  assert.equal(uiFingerprint(nodes), uiFingerprint([...nodes].reverse()), 'sibling order is not part of the screen')
+  const extra = [...nodes, { type: 'Text', text: '新消息', clickable: false, bounds: { x: 5, y: 90, width: 80, height: 20 } }]
+  assert.notEqual(uiFingerprint(nodes), uiFingerprint(extra))
+})
+
+check('assertUi separates "missing", "too many" and "wrong screen"', () => {
+  const nodes = [
+    { type: 'Text', text: '设置', clickable: true, bounds: { x: 1, y: 1, width: 10, height: 10 } },
+    { type: 'Text', text: '设置项', clickable: true, bounds: { x: 1, y: 20, width: 10, height: 10 } },
+  ]
+  assert.equal(assertUi(nodes, { text: '设置' }).ok, true, 'one match is enough when no count is given')
+  assert.equal(assertUi(nodes, { text: '设置', count: 1 }).ok, false, 'two matches are not "exactly one"')
+  assert.equal(assertUi(nodes, { text: '设置', count: 2 }).ok, true)
+  assert.equal(assertUi(nodes, { text: '设置', absent: true }).ok, false)
+  assert.equal(assertUi(nodes, { text: '登录', absent: true }).ok, true)
+  const pinned = uiFingerprint(nodes)
+  assert.equal(assertUi(nodes, { fingerprint: pinned }).ok, true)
+  assert.equal(assertUi(nodes, { fingerprint: 'deadbeefdeadbeef' }).ok, false)
+  assert.equal(assertUi(nodes, {}).ok, false, 'an empty expectation is a mistake, not a pass')
 })
 
 check('screenshot and devices stay usable in plan mode', async () => {

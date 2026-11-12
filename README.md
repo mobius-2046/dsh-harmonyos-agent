@@ -98,7 +98,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `app` | `op=start/stop/clear/uninstall` 启停应用、清数据、卸载 |
 | `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说；`fix: true` 时才顺手修验得出的三类（残留构建锁、缺 pnpm wrapper、缺 HSP 产物） |
 | `sign` | 构建前核对签名配置：材料文件在不在、证书什么时候过期、products 引用对不对 |
-| `ui` | `op=dump` 读界面控件树；`tap` 按文字点、`input` 输入、`key` 按键、`swipe` 滑动 |
+| `ui` | `op=dump` 读界面控件树；`find` 只查不点；`wait` 等文字出现或消失；`assert` 断言界面符合预期（文字、个数或界面指纹）；`tap` 按文字点、`input` 输入、`key` 按键、`swipe` 滑动 |
 | `file` | `op=pull` 把设备文件拉回本机、`op=send` 把本机文件推到设备 |
 | `crash` | 读设备上最新的崩溃日志（jscrash / cppcrash / appfreeze），可按包名筛选，提取进程、原因与栈顶帧 |
 | `deps` | `ohpm install --all`：改了 oh-package.json5 之后同步依赖，registry 或本地 .har 的问题当场说清 |
@@ -151,6 +151,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.27.0 | `ui op=assert` 断言界面：文字、个数、界面指纹；`dump` 顺带返回指纹 |
 | 0.26.0 | `doctor fix: true` 会修掉三类验得出的问题：残留构建锁、缺 pnpm wrapper、shared 模块缺 HSP |
 | 0.25.0 | `run` 失败时按首错归类，末尾给一行「接下来做什么」 |
 | 0.24.0 | 同一工程同时只跑一个构建（`.hvigor` 里抢锁），第二个直接说被谁占着，不白跑五分钟 |
