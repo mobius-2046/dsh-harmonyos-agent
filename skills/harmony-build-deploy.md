@@ -11,6 +11,7 @@ whenToUse: Building a HAP, installing to a device or emulator, wiring signing, r
 | 场景 | 调用 |
 |---|---|
 | 环境不对、构建失败原因不明 | `harmony action=doctor` |
+| 不确定某个接口用法、或它是哪个版本引入的 | `harmony action=docs op=search query=<关键词>`，再 `op=read file=… line=…`；版本问题用 `op=api symbol=<接口名>` |
 | 改了 `oh-package.json5`，或依赖报找不到 | `harmony({ action: "deps" })` |
 | 改完 `.ets`，只想知道能不能编过 | `harmony({ action: "build" })` |
 | 编 → 装 → 起 → 抓日志，一次跑通 | `harmony({ action: "run" })` |

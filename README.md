@@ -101,6 +101,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `file` | `op=pull` 把设备文件拉回本机、`op=send` 把本机文件推到设备 |
 | `crash` | 读设备上最新的崩溃日志（jscrash / cppcrash / appfreeze），可按包名筛选，提取进程、原因与栈顶帧 |
 | `deps` | `ohpm install --all`：改了 oh-package.json5 之后同步依赖，registry 或本地 .har 的问题当场说清 |
+| `docs` | 离线文档：`op=config` 配目录、`op=search` 查关键词、`op=read` 读命中原文、`op=api` 问某个接口从哪个 API 版本开始有 |
 
 **4. 看真机日志**
 
@@ -124,12 +125,32 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 
 感觉「环境不对」时先跑 `doctor`，它把 hdc、设备、SDK、hvigorw、签名、shared 模块产物、ohpm 逐项标成 ✓ / ! / ✗，并说明每一项各自的处置；比从一条 hvigor 报错往回猜快。
 
+**8. 查不到就查文档（可离线）**
+
+先配一次，之后一直有效：
+
+```text
+harmony  action=docs  op=config  dir=D:\docs-openharmony-6.1-release\zh-cn\application-dev
+harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
+```
+
+配置写进 `~/.dsh/dsh-harmony.json`；也可以完全用环境变量 `DSH_HARMONY_DOCS_DIRS`（多个目录用 `;` 分隔），适合把文档放在别处或临时换一套。
+
+之后：
+
+- `action=docs op=search query=notificationManager` → 文件、行号、所在标题、上下文，每文件最多两条。
+- `action=docs op=read file=<上面的文件> line=<行号>` → 读那一段原文。
+- `action=docs op=api symbol=notificationManager` → `@since 12`，以及声明所在文件与行。
+
+搜索有硬预算（4000 文件 / 64 MB / 10 秒），停下时会说清扫了多少、为什么停——「没扫完」不会被说成「没有」。
+
 **边界**：只支持 Windows（`tool-pwsh` 启用、`tool-bash` 关闭）；工程目录必须可写（hvigor 要写 `<project>/.hvigor` 和 `build/`）；未配置签名只会产出 unsigned，真机装不上；`run` 的「日志为空」是正常结果，不等于「没有崩溃」。
 
 ## 发版记录
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.20.0 | 离线文档可配置：`docs` 的 config / search / read / api（`@since` 版本查询），搜索有预算并如实报告 |
 | 0.19.0 | 错误码给出处置建议（同码不同义分开判）、记住上次使用的设备、`ui op=find` 只查不点 |
 | 0.18.0 | 设备徽标修好样式（此前只在日志面板里挂载 CSS），并展示机型、电量、温度、内存、存储 |
 | 0.17.0 | 左下角设备徽标：在线状态、台数、点开看序列号（不必打开面板或跑 `devices`） |

@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { apply, SKILLS } from '../index.js'
 import { harmonyPreset } from '../lib/preset.js'
 import { parseDeviceInfo } from '../lib/deviceinfo.js'
+import { lookupApi, readDoc, searchDocs } from '../lib/docs.js'
 import { explain } from '../lib/errorcodes.js'
 import {
   createHarmonyTools,
@@ -76,8 +77,8 @@ check('parameters is an object-root JSON Schema with action required', () => {
   assert.equal(schema.properties.action.type, 'string')
 })
 
-check('action enum covers build/run/devices/deploy/logs/screenshot/app/doctor/ui', () => {
-  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'crash', 'deploy', 'deps', 'devices', 'doctor', 'file', 'logs', 'run', 'screenshot', 'ui'])
+check('action enum covers every documented action', () => {
+  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'crash', 'deploy', 'deps', 'devices', 'docs', 'doctor', 'file', 'logs', 'run', 'screenshot', 'ui'])
 })
 
 check('op covers the four app lifecycle operations and the five ui operations', () => {
@@ -500,6 +501,92 @@ check('findUiNodes returns matches best-first without touching the device', () =
   assert.equal(hits.length, 2)
   assert.equal(hits[0].text, '取消')
   assert.deepEqual(findUiNodes(nodes, '不存在'), [])
+})
+
+check('docs search finds headings, snippets and caps hits per file', () => {
+  const root = mkdtempSync(join(tmpdir(), 'harmony-docs-'))
+  try {
+    mkdirSync(join(root, 'reference'))
+    writeFileSync(join(root, 'reference', 'a.md'), '# Alpha\n\nfirst Needle here\n\nsecond needle here\n\nthird NEEDLE here\n')
+    writeFileSync(join(root, 'b.md'), 'plain\n\none needle\n')
+    writeFileSync(join(root, 'skip.txt'), 'needle in a non-markdown file\n')
+
+    const found = searchDocs({ dirs: [root], query: 'needle' })
+    assert.equal(found.stopped, 'done')
+    assert.equal(found.hits.length, 3, 'two mentions in a.md plus one in b.md')
+    const alpha = found.hits.filter((hit) => hit.file.endsWith('a.md'))
+    assert.equal(alpha.length, 2, 'a single file must not flood the list')
+    assert.equal(alpha[0].heading, 'Alpha')
+    assert.match(alpha[0].snippet, /first Needle here/)
+    assert.ok(found.scannedFiles >= 2)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+check('docs search reports when it stopped before finishing', () => {
+  const root = mkdtempSync(join(tmpdir(), 'harmony-docs-'))
+  try {
+    writeFileSync(join(root, 'a.md'), 'needle\n')
+    const early = searchDocs({ dirs: [root], query: 'needle', deadlineMs: -1 })
+    assert.equal(early.stopped, 'deadline')
+    assert.deepEqual(early.hits, [])
+
+    const capped = searchDocs({ dirs: [root], query: 'needle', maxBytes: 0 })
+    assert.equal(capped.stopped, 'budget')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+check('docs read stays inside the configured roots', () => {
+  const root = mkdtempSync(join(tmpdir(), 'harmony-docs-'))
+  const outside = mkdtempSync(join(tmpdir(), 'harmony-elsewhere-'))
+  try {
+    const file = join(root, 'a.md')
+    writeFileSync(file, 'line1\nline2\nline3\nline4\n')
+    const section = readDoc({ file, dirs: [root], line: 2, context: 4 })
+    assert.equal(section.start, 1)
+    assert.match(section.text, /line1/)
+    assert.throws(() => readDoc({ file: join(outside, 'x.md'), dirs: [root] }), /不在已配置的文档目录/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+    rmSync(outside, { recursive: true, force: true })
+  }
+})
+
+check('docs api lookup reads @since and @deprecated from d.ts', () => {
+  const sdk = mkdtempSync(join(tmpdir(), 'harmony-sdk-'))
+  try {
+    writeFileSync(join(sdk, '@ohos.demo.d.ts'), [
+      '/**',
+      ' * Demo manager.',
+      ' * @since 11',
+      ' */',
+      'declare namespace demoManager {',
+      '  function publish(): void;',
+      '}',
+      '',
+      '/**',
+      ' * @since 9',
+      ' * @deprecated since 12',
+      ' */',
+      'declare function oldApi(): void;',
+    ].join('\n'))
+
+    const hit = lookupApi({ sdkRoot: sdk, symbol: 'demoManager' })
+    assert.equal(hit.since, '11')
+    assert.equal(hit.deprecated, false)
+    assert.match(hit.declaration, /declare namespace demoManager/)
+
+    const old = lookupApi({ sdkRoot: sdk, symbol: 'oldApi' })
+    assert.equal(old.since, '9')
+    assert.equal(old.deprecated, true)
+
+    assert.equal(lookupApi({ sdkRoot: sdk, symbol: 'notHere' }), null)
+  } finally {
+    rmSync(sdk, { recursive: true, force: true })
+  }
 })
 
 check('package.json declares engines.dsh and a semver version', () => {
