@@ -32,6 +32,7 @@ import {
   flattenUi,
   inferTarget,
   parseBounds,
+  parseBundleDump,
   parseHvigorOutput,
   parseOutput,
   parseTargets,
@@ -285,6 +286,42 @@ check('screenshot and devices stay usable in plan mode', async () => {
   const guarded = createHarmonyTools({ planMode: { get: () => ({ active: true }) } })[0]
   const result = await guarded.execute({ action: 'devices' }, {})
   assert.notEqual(result.data?.stage, 'plan-guard')
+})
+
+check('parseBundleDump reads version fields and survives a missing bundle', () => {
+  const installed = [
+    'com.tze.xcommander:',
+    '{',
+    '    "appId": "com.tze.xcommander_BA3C",',
+    '    "firstInstallTime": 1794400531658,',
+    '    "installTime": 1794400531658,',
+    '    "updateTime": 1794485965431,',
+    '    "appDistributionType": "os_integration",',
+    '    "codePath": "/data/app/el1/bundle/public/com.tze.xcommander",',
+    '        "versionCode": 20260616,',
+    '        "versionName": "2.1.0",',
+    '}',
+  ].join('\n')
+  const state = parseBundleDump(installed)
+  assert.equal(state.installed, true)
+  assert.equal(state.versionName, '2.1.0')
+  assert.equal(state.versionCode, '20260616')
+  assert.equal(state.distributionType, 'os_integration')
+  assert.equal(state.updateTime, 1794485965431)
+
+  const missing = 'error: failed to get information and the parameters may be wrong.'
+  assert.equal(parseBundleDump(missing).installed, false, 'a missing bundle has no codePath')
+
+  const emptyName = installed.replace('"versionName": "2.1.0"', '"versionName": ""')
+  assert.equal(parseBundleDump(emptyName).versionName, '', 'an empty versionName stays empty, not undefined')
+})
+
+check('app op=query is read-only, so plan mode lets it through', async () => {
+  const guarded = createHarmonyTools({ planMode: { get: () => ({ active: true }) } })[0]
+  const query = await guarded.execute({ action: 'app', op: 'query', bundleName: 'com.tze.xcommander' }, {})
+  assert.notEqual(query.data?.stage, 'plan-guard', 'querying what is installed does not change the device')
+  const start = await guarded.execute({ action: 'app', op: 'start', bundleName: 'com.tze.xcommander' }, {})
+  assert.equal(start.data?.stage, 'plan-guard', 'starting an app still needs build mode')
 })
 
 check('hvigor ERROR is parsed with its code, message and hints', () => {
