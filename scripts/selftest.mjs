@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { apply, SKILLS } from '../index.js'
 import { harmonyPreset } from '../lib/preset.js'
 import { createBudget } from '../lib/budget.js'
+import { createLogRoutes } from '../lib/hilog.js'
 import { parseDeviceInfo } from '../lib/deviceinfo.js'
 import { lookupApi, readDoc, searchDocs } from '../lib/docs.js'
 import { explain } from '../lib/errorcodes.js'
@@ -423,7 +424,9 @@ check('client registers a footer device badge that polls and lists ids', () => {
   const closed = Number(source.match(/const DEVICE_POLL_CLOSED = (\d+)/)?.[1])
   const open = Number(source.match(/const DEVICE_POLL_OPEN = (\d+)/)?.[1])
   assert.ok(closed > open && open >= 1000, 'badge must poll slower while closed, and not spin')
-  assert.ok(source.includes("className: 'hd-item'"), 'popover must render one row per device id')
+  assert.ok(source.includes("className: isPreferred ? 'hd-item hd-item-default' : 'hd-item'"), 'popover must render one row per device id')
+  assert.ok(source.includes("PREFERRED_API = '/api/harmony/logs/preferred'"), 'badge must be able to change the default device')
+  assert.ok(source.includes('DEVICE_POLL_CLOSED = 60000'), 'closed badge polls once a minute')
   assert.ok(source.includes("t('devicesCount', { n: devices.length })"), 'popover must show the count')
 })
 
@@ -607,6 +610,14 @@ async function checkAsync(name, fn) {
     results.push({ name, ok: false, error: error instanceof Error ? error.message : String(error) })
   }
 }
+
+await checkAsync('preferred route refuses a payload without a usable id', async () => {
+  const route = createLogRoutes().find((entry) => entry.path === '/api/harmony/logs/preferred')
+  assert.ok(route, 'preferred route must exist')
+  const url = 'http://local/api/harmony/logs/preferred'
+  assert.equal((await route.fetch(new Request(url, { method: 'POST', body: 'not json' }))).status, 400)
+  assert.equal((await route.fetch(new Request(url, { method: 'POST', body: '{}' }))).status, 400)
+})
 
 await checkAsync('diagnostic budget separates ok, timeout, skipped and error', async () => {
   const budget = createBudget(10_000, { perProbeMs: 80 })

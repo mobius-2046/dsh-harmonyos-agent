@@ -10,6 +10,7 @@ window.__ModuleLoader__.load({
     const NS = 'harmonyLogs'
     /** Authenticated Host routes registered by this bundle's index.js. */
     const DEVICES_API = '/api/harmony/logs/devices'
+    const PREFERRED_API = '/api/harmony/logs/preferred'
     const PROCESSES_API = '/api/harmony/logs/processes'
     const LOGS_API = '/api/harmony/logs'
     /** Levels in hilog order, weakest first. DevEco labels them Debug..Fatal. */
@@ -34,7 +35,9 @@ window.__ModuleLoader__.load({
     /** Rows kept per snapshot; mirrors the live buffer bound. */
     const SNAPSHOT_LINES_MAX = 4000
     /** How often the footer device badge refreshes while its popover is closed. */
-    const DEVICE_POLL_CLOSED = 20000
+    // Closed badge: 60 s. One request per minute is enough to notice a
+    // device coming or going, and it is invisible next to the log stream.
+    const DEVICE_POLL_CLOSED = 60000
     /** Faster while the popover is open, where the list is being watched. */
     const DEVICE_POLL_OPEN = 5000
 
@@ -210,6 +213,8 @@ window.__ModuleLoader__.load({
       devicesEmpty: '还没有设备连接',
       devicesHint: '用 hdc 或 DevEco 连上设备，这里会自动出现',
       devicesDefault: '默认',
+      devicesPreferred: '上次使用',
+      devicesUseThis: '点一下改用这台',
       devicesConnected: '在线',
       devicesApi: 'API {v}',
       devicesBattery: '电量 {v}%',
@@ -305,6 +310,8 @@ window.__ModuleLoader__.load({
       devicesEmpty: 'No device connected',
       devicesHint: 'Connect one with hdc or DevEco and it shows up here',
       devicesDefault: 'default',
+      devicesPreferred: 'last used',
+      devicesUseThis: 'click to make this the default',
       devicesConnected: 'online',
       devicesApi: 'API {v}',
       devicesBattery: '{v}% battery',
@@ -465,6 +472,9 @@ window.__ModuleLoader__.load({
       ".hd-list{list-style:none;margin:0;padding:0 6px 6px;display:flex;flex-direction:column;gap:2px;max-height:300px;overflow:auto}",
       ".hd-item{display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:8px}",
       ".hd-item:hover{background:var(--dsw-alias-bg-layer-2)}",
+      ".hd-item{cursor:pointer}",
+      ".hd-item-default{cursor:default;background:var(--dsw-alias-bg-layer-2)}",
+      ".hd-item-default .hd-tag{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-brand-primary)}",
       ".hd-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}",
       ".hd-line{display:flex;align-items:baseline;gap:6px;min-width:0}",
       ".hd-model{flex:none;font-size:12.5px;font-weight:600;letter-spacing:-.01em}",
@@ -1389,7 +1399,7 @@ window.__ModuleLoader__.load({
      * @returns {[{ ok: boolean, devices: string[], error: string | null }, () => Promise<void>]}
      */
     function useDeviceList(open) {
-      const [state, setState] = React.useState({ ok: true, devices: [], details: {}, error: null })
+      const [state, setState] = React.useState({ ok: true, devices: [], details: {}, preferred: null, error: null })
       const load = React.useCallback(async () => {
         try {
           const response = await fetch(DEVICES_API)
@@ -1401,9 +1411,10 @@ window.__ModuleLoader__.load({
               if (entry !== null && typeof entry === 'object' && typeof entry.id === 'string') details[entry.id] = entry
             }
           }
-          setState({ ok: data.ok !== false, devices, details, error: typeof data.error === 'string' ? data.error : null })
+          const preferred = typeof data.preferred === 'string' && devices.includes(data.preferred) ? data.preferred : (devices[0] ?? null)
+          setState({ ok: data.ok !== false, devices, details, preferred, error: typeof data.error === 'string' ? data.error : null })
         } catch (error) {
-          setState({ ok: false, devices: [], error: error instanceof Error ? error.message : String(error) })
+          setState({ ok: false, devices: [], details: {}, preferred: null, error: error instanceof Error ? error.message : String(error) })
         }
       }, [])
       React.useEffect(() => {
@@ -1411,7 +1422,20 @@ window.__ModuleLoader__.load({
         const timer = window.setInterval(load, open ? DEVICE_POLL_OPEN : DEVICE_POLL_CLOSED)
         return () => window.clearInterval(timer)
       }, [load, open])
-      return [state, load]
+      // Making a device the default is a host-side decision (the tool keeps the
+      // memory); the badge only asks for it and re-reads the list.
+      const remember = React.useCallback(async (id) => {
+        try {
+          await fetch(PREFERRED_API, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id }),
+          })
+        } finally {
+          await load()
+        }
+      }, [load])
+      return [state, load, remember]
     }
 
     /**
@@ -1457,7 +1481,7 @@ window.__ModuleLoader__.load({
       const [open, setOpen] = React.useState(false)
       const [anchor, setAnchor] = React.useState(null)
       const buttonRef = React.useRef(null)
-      const [state, reload] = useDeviceList(open)
+      const [state, reload, remember] = useDeviceList(open)
       const devices = state.devices
       const details = state.details
       const tone = state.error !== null ? 'error' : (devices.length > 0 ? 'ok' : 'idle')
@@ -1539,12 +1563,18 @@ window.__ModuleLoader__.load({
                     : h('ul', { className: 'hd-list' }, devices.map((id, index) => {
                         const info = details[id] ?? { id }
                         const chips = deviceChips(t, info)
-                        return h('li', { key: id, className: 'hd-item' },
+                        const isPreferred = id === state.preferred
+                        return h('li', {
+                          key: id,
+                          className: isPreferred ? 'hd-item hd-item-default' : 'hd-item',
+                          title: isPreferred ? t('devicesPreferred') : t('devicesUseThis'),
+                          onClick: isPreferred ? undefined : () => remember(id),
+                        },
                           h('div', { className: 'hd-body' },
                             h('div', { className: 'hd-line' },
                               h('span', { className: 'hd-model' }, typeof info.model === 'string' ? info.model : id),
                               typeof info.model === 'string' ? h('span', { className: 'hd-id' }, id) : null,
-                              index === 0 ? h('span', { className: 'hd-tag' }, t('devicesDefault')) : null,
+                              isPreferred ? h('span', { className: 'hd-tag' }, t('devicesPreferred')) : null,
                             ),
                             chips.length > 0 ? h('div', { className: 'hd-chips' }, chips.map((chip, chipIndex) => h('span', { key: chipIndex, className: 'hd-chip' }, chip))) : null,
                             typeof info.osVersion === 'string' ? h('div', { className: 'hd-os' }, info.osVersion) : null,
