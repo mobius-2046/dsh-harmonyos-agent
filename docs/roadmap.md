@@ -16,8 +16,9 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 已做：`lib/attribute.js` 按首错分六类（编译 / 签名 / 缺 HSP / 无设备 / 启动 / 崩溃），末尾一行给命令；判不出来时建议 `doctor`。
 未做：把归因结果反过来驱动自动修复（例如判成「缺 HSP」就直接重跑 `hsp: true`），那属于 `doctor --fix` 的范畴。
 
-### 3. `doctor --fix`
-诊断项里有几项可自动修：shared 模块缺产物 → 补跑 `assembleHsp`；隔离 home 缺 wrapper → 从真实 `~/.hvigor` 补种；`.hvigor` 被占用 → 等待。诊断完还要人再敲一条命令，等于多一次往返。
+### 3. `doctor --fix`（0.26.0 已交付）
+已做：`fix: true` 时修三类验得出的问题——残留构建锁（`acquireBuildLock` 探测，死 pid 才接管，活进程写「未动」）、缺 pnpm wrapper（`prepareHvigorHome()` 从真实 `~/.hvigor` 补种）、shared 模块缺 signed HSP（补跑 `assembleHsp` 后重新比对产物）。修完重算 ✓ / ! / ✗，修了什么单独列「已修：」并进 `data.repairs`。
+未做：`run` 的归因结果反向驱动自动修复（判成「缺 HSP」就自动 `hsp: true` 重跑）——那要先把归因准确率做实。
 
 ### 4. `sign` 动作（0.22.0 已交付诊断部分）
 0.22.0 先做「构建前回答签名会不会出问题」：读 `signingConfigs`、核对三个材料、解析证书有效期。
@@ -37,7 +38,9 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 
 ## 待定
 
-- **`scaffold`（新建工程）**：倾向不做——要维护模板，而现有用法都是拿现成工程。真要做，先定目标 API 版本与模块结构。
+- **`scaffold`（新建工程）**：用户 2026-11-12 定调——「之后好好规划后再做，初步想法是对齐 DevEco Studio 的新建工程」。所以不做自制模板，目标是复现 DevEco 的向导体验（选模板 → 选 API 版本/设备类型 → 生成可构建工程 → 自动签名）。
+  已探明：模板在 `C:\Program Files\Huawei\DevEco Studio 611\plugins\{harmony,openharmony}\lib\templates\` 下，按 `ability / extension / module / page / project` 分类；`plugins/codegenie-plugin/previewProjectTemplate` 另有一套预览用模板。
+  待调研：模板描述文件格式（占位符、参数化 API 版本与包名的方式）、是否需要 `ohpm` 预装依赖、生成后如何拿到自动签名材料。规划清楚前不动手。
 - **CI**：hvigor 构建依赖本地 DevEco SDK，托管机器上没有；只能跑纯逻辑自测（现有 33 项里约一半可脱离真机）。
 
 ## 已交付

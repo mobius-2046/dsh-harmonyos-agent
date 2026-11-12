@@ -7,7 +7,7 @@
 // changing lib/tools.js.
 
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { apply, SKILLS } from '../index.js'
@@ -227,6 +227,32 @@ check('doctor is advertised and allowed while plan mode is active', async () => 
   assert.match(tool.description, /doctor/)
   const result = await tool.execute({ action: 'doctor', projectDir: process.cwd() }, { planMode: { get: () => ({ active: true }) } })
   assert.notEqual(result.data?.stage, 'plan-guard')
+})
+
+check('doctor exposes an opt-in fix switch that only repairs proven damage', () => {
+  const fix = tool.parameters.properties.fix
+  assert.equal(fix.type, 'boolean')
+  assert.match(fix.description, /repair/)
+  assert.match(fix.description, /Defaults to false/)
+})
+
+check('a stale build lock is reclaimed, a live one is left alone', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-harmony-lock-'))
+  mkdirSync(join(dir, '.hvigor'), { recursive: true })
+  writeFileSync(lockPath(dir), JSON.stringify({ pid: 999999, startedAt: Date.now() }))
+  const stale = acquireBuildLock(dir)
+  assert.equal(stale.ok, true, 'a dead pid must not block the build')
+  assert.ok(stale.reclaimed, 'the lock explains why it was taken over')
+  releaseBuildLock(stale.path)
+  assert.equal(existsSync(lockPath(dir)), false)
+
+  const live = acquireBuildLock(dir)
+  assert.equal(live.ok, true)
+  const second = acquireBuildLock(dir)
+  assert.equal(second.ok, false, 'a live holder keeps the lock')
+  assert.equal(second.holder.pid, process.pid)
+  releaseBuildLock(live.path)
+  rmSync(dir, { recursive: true, force: true })
 })
 
 check('screenshot and devices stay usable in plan mode', async () => {

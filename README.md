@@ -96,7 +96,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `logs` | 限时抓取 `hdc shell hilog`；给 `bundleName` 就解析 pid 只留这个应用的日志；支持多设备合并；`filter` 用子串或 `/regex/flags` |
 | `screenshot` | 抓一张设备截图存到本地临时目录，返回文件路径与分辨率 |
 | `app` | `op=start/stop/clear/uninstall` 启停应用、清数据、卸载 |
-| `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说 |
+| `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说；`fix: true` 时才顺手修验得出的三类（残留构建锁、缺 pnpm wrapper、缺 HSP 产物） |
 | `sign` | 构建前核对签名配置：材料文件在不在、证书什么时候过期、products 引用对不对 |
 | `ui` | `op=dump` 读界面控件树；`tap` 按文字点、`input` 输入、`key` 按键、`swipe` 滑动 |
 | `file` | `op=pull` 把设备文件拉回本机、`op=send` 把本机文件推到设备 |
@@ -124,7 +124,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 
 **7. 构建失败前先体检**
 
-感觉「环境不对」时先跑 `doctor`，它把 hdc、设备、SDK、hvigorw、签名、shared 模块产物、ohpm 逐项标成 ✓ / ! / ✗ / ⏱（超时）/ …（没来得及跑），并说明每一项各自的处置；比从一条 hvigor 报错往回猜快。外部探测每项限时 2 秒、整轮 8 秒预算，所以它会回来——包括环境本身出问题的时候。
+感觉「环境不对」时先跑 `doctor`，它把 hdc、设备、SDK、hvigorw、签名、shared 模块产物、ohpm 逐项标成 ✓ / ! / ✗ / ⏱（超时）/ …（没来得及跑），并说明每一项各自的处置；比从一条 hvigor 报错往回猜快。外部探测每项限时 2 秒、整轮 8 秒预算，所以它会回来——包括环境本身出问题的时候。加 `fix: true` 会让它顺手修掉三类验得出的问题（残留构建锁、缺 pnpm wrapper、shared 模块缺 HSP），修了什么单独列在「已修：」里。
 
 **8. 查不到就查文档（可离线）**
 
@@ -151,6 +151,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.26.0 | `doctor fix: true` 会修掉三类验得出的问题：残留构建锁、缺 pnpm wrapper、shared 模块缺 HSP |
 | 0.25.0 | `run` 失败时按首错归类，末尾给一行「接下来做什么」 |
 | 0.24.0 | 同一工程同时只跑一个构建（`.hvigor` 里抢锁），第二个直接说被谁占着，不白跑五分钟 |
 | 0.23.0 | `ui op=wait` 等文字出现或消失，替代「点完再 dump 一次」的额外轮次 |
