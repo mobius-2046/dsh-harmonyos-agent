@@ -17,6 +17,7 @@ import { createLogRoutes } from '../lib/hilog.js'
 import { parseDeviceInfo } from '../lib/deviceinfo.js'
 import { lookupApi, readDoc, searchDocs } from '../lib/docs.js'
 import { explain } from '../lib/errorcodes.js'
+import { inspectCertificate, parseSigningConfigs, signingReport } from '../lib/signing.js'
 import {
   createHarmonyTools,
   parseFaultLog,
@@ -80,7 +81,7 @@ check('parameters is an object-root JSON Schema with action required', () => {
 })
 
 check('action enum covers every documented action', () => {
-  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'crash', 'deploy', 'deps', 'devices', 'docs', 'doctor', 'file', 'logs', 'run', 'screenshot', 'ui'])
+  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'crash', 'deploy', 'deps', 'devices', 'docs', 'doctor', 'file', 'logs', 'run', 'screenshot', 'sign', 'ui'])
 })
 
 check('op covers the four app lifecycle operations and the five ui operations', () => {
@@ -638,6 +639,45 @@ await checkAsync('diagnostic budget separates ok, timeout, skipped and error', a
   const spent = createBudget(0, { perProbeMs: 80 })
   assert.equal((await spent.probe('never', async () => 1)).status, 'skipped')
   assert.equal(budget.probes.length, 3)
+})
+
+check('signing report reads the config, the materials and the product reference', () => {
+  const source = `{
+    // comment before the array
+    "app": {
+      "signingConfigs": [
+        {
+          "name": "release",
+          "material": {
+            "certpath": "/nowhere/app.cer",
+            "profile": "/nowhere/app.p7b",
+            "storeFile": "/nowhere/app.p12",
+            "keyAlias": "debugKey",
+            "signAlg": "SHA256withECDSA",
+            "storePassword": "${'A'.repeat(72)}",
+          },
+        },
+      ],
+      "products": [{ "name": "default", "signingConfig": "release" }],
+    },
+  }`
+  const report = signingReport(source, { exists: () => false })
+  assert.equal(report.found, true)
+  assert.equal(report.config.name, 'release')
+  assert.equal(report.materials.length, 3)
+  assert.ok(report.materials.every((material) => material.exists === false))
+  assert.deepEqual(report.referenced, ['release'])
+  assert.equal(report.certificate, null)
+  assert.equal(report.devEcoEncrypted, true)
+  const parsed = parseSigningConfigs(source)
+  assert.equal(parsed.configs[0].material.keyAlias, 'debugKey')
+  assert.equal(parsed.configs[0].material.hasStorePassword, true)
+})
+
+check('signing report admits a project without signingConfigs', () => {
+  const report = signingReport('{ "app": { "products": [] } }', { exists: () => false })
+  assert.equal(report.found, false)
+  assert.equal(inspectCertificate('/nowhere/app.cer').error !== undefined, true)
 })
 
 await checkAsync('diagnostic budget ends the pass on the shared deadline', async () => {

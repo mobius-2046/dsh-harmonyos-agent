@@ -20,7 +20,7 @@
 | 预设 `harmony` | 与 `standard` 同源的编码工具面（26 个组件），人格换成鸿蒙专家，内置 plan / goal / build 三模式所需件；运行时注册，不占用官方预设位 |
 | 命令 | `/build`（plan 停在半路时直接开工）、`/mode`（看当前 plan / goal 状态）、`/goal`（要求写清完成判据与验证方式）；`/plan` 是宿主内置 |
 | 技能 | `harmony-project`、`harmony-arkts`、`harmony-build-deploy`、`harmony-ohpm` |
-| 工具 | 一个 `harmony`，十四个动作：`build` / `compile` / `deps` / `run` / `devices` / `deploy` / `logs` / `screenshot` / `app` / `doctor` / `ui` / `file` / `crash` / `docs` |
+| 工具 | 一个 `harmony`，十五个动作：`build` / `compile` / `deps` / `run` / `devices` / `deploy` / `logs` / `screenshot` / `app` / `doctor` / `sign` / `ui` / `file` / `crash` / `docs` |
 | 日志面板 | 侧边栏 **hilog** 图标 → 全屏日志页 |
 | 设备徽标 | 侧边栏左下角的小手机图标：绿色胶囊=在线台数；点开是每台的机型、序列号、API、电量、温度、内存与存储占用 |
 
@@ -97,6 +97,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `screenshot` | 抓一张设备截图存到本地临时目录，返回文件路径与分辨率 |
 | `app` | `op=start/stop/clear/uninstall` 启停应用、清数据、卸载 |
 | `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说 |
+| `sign` | 构建前核对签名配置：材料文件在不在、证书什么时候过期、products 引用对不对 |
 | `ui` | `op=dump` 读界面控件树；`tap` 按文字点、`input` 输入、`key` 按键、`swipe` 滑动 |
 | `file` | `op=pull` 把设备文件拉回本机、`op=send` 把本机文件推到设备 |
 | `crash` | 读设备上最新的崩溃日志（jscrash / cppcrash / appfreeze），可按包名筛选，提取进程、原因与栈顶帧 |
@@ -150,6 +151,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.22.0 | `sign` 在构建前核对签名配置、三个材料文件与证书有效期 |
 | 0.21.1 | 设备徽标标出「上次使用」并可点击切换默认设备；关闭时轮询降为 60 秒 |
 | 0.21.0 | `doctor` 每项探测限时 2 秒、整轮 8 秒预算，超时与「没来得及跑」分开报 |
 | 0.20.0 | 离线文档可配置：`docs` 的 config / search / read / api（`@since` 版本查询），搜索有预算并如实报告 |
