@@ -20,6 +20,7 @@ import { explain } from '../lib/errorcodes.js'
 import { waitUntil } from '../lib/wait.js'
 import { inspectCertificate, parseSigningConfigs, signingReport } from '../lib/signing.js'
 import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
+import { attributeFailure } from '../lib/attribute.js'
 import {
   createHarmonyTools,
   parseFaultLog,
@@ -729,6 +730,17 @@ check('build lock refuses a live holder and reclaims a dead one', () => {
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+check('a failed run names the next command, not just the failing stage', () => {
+  assert.equal(attributeFailure({ lines: ['ERROR: ArkTS:ERROR File: C:/p/entry/src/main/ets/pages/Index.ets:42:9'] }).kind, 'compile')
+  assert.equal(attributeFailure({ lines: ["code:9568305 error: ... entry's dependent module: nextMap does not exist"] }).kind, 'dependent')
+  assert.equal(attributeFailure({ lines: ['error: 9568289 The signature of the profile does not match'] }).kind, 'signing')
+  assert.equal(attributeFailure({ lines: ['FATAL EXCEPTION: main'] }).kind, 'crash')
+  assert.equal(attributeFailure({ lines: ['没有已连接的设备'] }).kind, 'device')
+  const unknown = attributeFailure({ lines: ['something odd'] })
+  assert.equal(unknown.kind, 'unknown')
+  assert.match(unknown.action, /doctor/)
 })
 
 const failed = results.filter((result) => !result.ok)

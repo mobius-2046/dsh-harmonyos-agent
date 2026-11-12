@@ -11,9 +11,10 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 已做：`<工程>/.hvigor/dsh-harmony.build.lock` 抢锁，第二个构建立即返回持有者与已持有时长；pid 已退出或超过 30 分钟视为残留并接管；`finally` 释放。
 未做：与 DevEco 的构建协调只能靠 EBUSY 探测（自动重试一次 + 提示），没有跨进程协议可用。
 
-### 2. `run` 的失败归因
+### 2. `run` 的失败归因（0.25.0 已交付）
 现在失败会给四段结论，但「下一步怎么办」要模型自己推。
-做法：抽出首错并映射到建议——编译错误给文件行号；签名失败指向 `doctor` 的签名行；`9568305` 直接建议 `hsp:true`；启动失败区分「没装成」与「装了但崩了」。
+已做：`lib/attribute.js` 按首错分六类（编译 / 签名 / 缺 HSP / 无设备 / 启动 / 崩溃），末尾一行给命令；判不出来时建议 `doctor`。
+未做：把归因结果反过来驱动自动修复（例如判成「缺 HSP」就直接重跑 `hsp: true`），那属于 `doctor --fix` 的范畴。
 
 ### 3. `doctor --fix`
 诊断项里有几项可自动修：shared 模块缺产物 → 补跑 `assembleHsp`；隔离 home 缺 wrapper → 从真实 `~/.hvigor` 补种；`.hvigor` 被占用 → 等待。诊断完还要人再敲一条命令，等于多一次往返。
