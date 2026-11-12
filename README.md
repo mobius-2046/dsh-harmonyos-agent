@@ -22,6 +22,7 @@
 | 技能 | `harmony-project`、`harmony-arkts`、`harmony-build-deploy`、`harmony-ohpm` |
 | 工具 | 一个 `harmony`，十三个动作：`build` / `compile` / `deps` / `run` / `devices` / `deploy` / `logs` / `screenshot` / `app` / `doctor` / `ui` / `file` / `crash` |
 | 日志面板 | 侧边栏 **hilog** 图标 → 全屏日志页 |
+| 设备徽标 | 侧边栏左下角的小手机图标：绿色胶囊=在线台数；点开是每台的机型、序列号、API、电量、温度、内存与存储占用 |
 
 三个模式不是三个 agent，而是同一个会话的三种状态：
 
@@ -129,6 +130,8 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.18.0 | 设备徽标修好样式（此前只在日志面板里挂载 CSS），并展示机型、电量、温度、内存、存储 |
+| 0.17.0 | 左下角设备徽标：在线状态、台数、点开看序列号（不必打开面板或跑 `devices`） |
 | 0.16.0 | `logs` 按 pid 收敛：给包名就只看这个应用的行（栈帧跟着上一条记录保留） |
 | 0.15.0 | `deps`：`ohpm install --all`，把依赖问题从「构建时报找不到模块」提前到安装时 |
 | 0.12.0 | `compile`：只做 ArkTS 类型检查，约是完整构建的一半时间 |

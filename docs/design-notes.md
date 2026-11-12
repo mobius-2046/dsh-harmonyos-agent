@@ -126,3 +126,29 @@ bundle 通过 `link:` 接入 profile，宿主在启动时 `import` 插件模块�
 - **失败的设备不拖累成功的设备。** 每台设备的 `{installed, staged, started, crashed, logLines}` 都进 `data.devices`，`ok` 的判据是「至少一台装成功」，不是「全部成功」：多设备时总有一台可能没解锁或没空间。
 - **`device` 的三态**在 `parseTargets(connected, spec)` 里：缺省取第一台（保持旧行为）、`all` 取全部、逗号/空格列表只取交集并把未知 id 从 `unknown` 报回去——静默丢弃会让人以为装上了。
 - **plan 守卫放在 `execute` 的第一行**，早于 `resolveHvigorw` 和任何子进程：`planMode.get(agent).active` 为真时 `build/run/deploy` 直接返回 `stage: 'plan-guard'`。这样「只读」由工具强制，不依赖人格提示；也不要把它写成对 `args.action` 的字符串白名单之外的特判——`devices` / `logs` 必须仍然可用，否则 plan 阶段没法调研设备状态。
+
+## 设备徽标为什么不用 portal
+
+`sidebar.footer.action` 里的小徽标点开是一个浮层。官方和 `dsh-hdc-bridge` 都用 `ReactDOM.createPortal(…, document.body)`，我们没有引 `react-dom`——客户端只声明了 `react`，多一个依赖就多一种在宿主里加载失败的方式。改成 `position: fixed` + 打开时按按钮的 `getBoundingClientRect()` 算坐标：fixed 元素不受侧边栏 `overflow` 裁剪，左右边界在 `toggle()` 里 clamp 过，窄窗口也不会溢出屏幕。
+
+刷新频率分两档：浮层关着 20 秒、打开 5 秒。徽标回答的是「设备还在不在」，不需要秒级；打开浮层时人正盯着看，5 秒才对得起这次点击。
+
+设备列表复用 `/api/harmony/logs/devices`，没有新开路由——它已经带浏览器令牌。**`devices` 保持字符串数组**，徽标要的设备信息挂在同响应的 `details` 里：hilog 面板的下拉框还在按字符串消费它，改形状会把它悄悄弄坏。
+
+## 样式表必须挂在面板之外
+
+徽标第一版完全没样式（截图里那行「鸿蒙 2 / 已连接设备 2 台」的黑字）。原因不是 class 写错、也不是主题 token 不存在：整份 CSS 是通过 `h('style', null, CSS)` 渲染在 `LogsPage` 根节点里的，而 `sidebar.footer.action` 的徽标在 LogsPage 之外——**面板没打开过，`<style>` 就从没进过 DOM**。之前「状态点没有绿点」也是同一个原因。
+
+修法：客户端加载时 `document.head.appendChild(<style id="harmony-ui-style">)` 一次，面板与徽标共用；同时删掉面板里那份。凡是跨槽位复用的样式，都不能挂在某一个槽位的组件树里。
+
+## 设备信息从哪来
+
+一次 `hdc shell` 把 11 个值用 `KEY=value` 打出来，避免多趟往返，也避免某个 `param get` 失败后整段输出错位：
+
+```
+const.product.model / const.product.software.version / const.ohos.apiversion
+/sys/class/power_supply/battery/{capacity,temp,voltage_now,status}
+/proc/uptime  /proc/meminfo  df -k /data
+```
+
+电池温度是 0.1°C（`330` → 33°C），电压是 µV。`df -k /data` 的挂载点可能显示成某个沙箱路径，但容量字段是真的。单个字段取不到就不输出，绝不填 0——「不知道」和「0%」在 UI 上是两件事。

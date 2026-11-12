@@ -33,6 +33,10 @@ window.__ModuleLoader__.load({
     const SNAPSHOTS_MAX = 6
     /** Rows kept per snapshot; mirrors the live buffer bound. */
     const SNAPSHOT_LINES_MAX = 4000
+    /** How often the footer device badge refreshes while its popover is closed. */
+    const DEVICE_POLL_CLOSED = 20000
+    /** Faster while the popover is open, where the list is being watched. */
+    const DEVICE_POLL_OPEN = 5000
 
     /**
      * The stored log font size, or the default. Storage is best-effort: a
@@ -199,6 +203,23 @@ window.__ModuleLoader__.load({
       'foot.total': '共 {n} 条',
       'foot.shown': '显示 {n} 条',
       'foot.retained': '{n} 条已保留',
+      devicesEntry: '鸿蒙设备',
+      devicesLabel: '鸿蒙',
+      devicesTitle: '设备',
+      devicesCount: '{n} 台在线',
+      devicesEmpty: '还没有设备连接',
+      devicesHint: '用 hdc 或 DevEco 连上设备，这里会自动出现',
+      devicesDefault: '默认',
+      devicesConnected: '在线',
+      devicesApi: 'API {v}',
+      devicesBattery: '电量 {v}%',
+      devicesTemp: '{v}°C',
+      devicesMemory: '内存 {used}/{total}G',
+      devicesStorage: '存储 {v}%',
+      devicesCharging: '充电中',
+      devicesDischarging: '放电中',
+      devicesFull: '已充满',
+      devicesFoot: '不带 device 参数时默认使用第一台',
     }
 
     const en = {
@@ -277,6 +298,23 @@ window.__ModuleLoader__.load({
       'foot.total': '{n} total',
       'foot.shown': '{n} shown',
       'foot.retained': '{n} retained',
+      devicesEntry: 'HarmonyOS devices',
+      devicesLabel: 'HarmonyOS',
+      devicesTitle: 'Devices',
+      devicesCount: '{n} online',
+      devicesEmpty: 'No device connected',
+      devicesHint: 'Connect one with hdc or DevEco and it shows up here',
+      devicesDefault: 'default',
+      devicesConnected: 'online',
+      devicesApi: 'API {v}',
+      devicesBattery: '{v}% battery',
+      devicesTemp: '{v}°C',
+      devicesMemory: 'RAM {used}/{total}G',
+      devicesStorage: 'Disk {v}%',
+      devicesCharging: 'charging',
+      devicesDischarging: 'discharging',
+      devicesFull: 'full',
+      devicesFoot: 'The first device is used when device is omitted',
     }
 
     const DICTIONARIES = { zh, en }
@@ -325,7 +363,8 @@ window.__ModuleLoader__.load({
       }
     }
 
-    /** Panel-owned stylesheet. Every color is a host theme token. */
+    /** One stylesheet for panel and footer badge; both live under different slot roots. */
+    const STYLE_ID = 'harmony-ui-style'
     const CSS = [
       '.hl-page{box-sizing:border-box;height:100%;color:var(--dsw-alias-label-primary);flex-direction:column;gap:10px;display:flex;overflow:hidden;padding:0 clamp(16px,2.4vw,32px) 16px;--hl-cols:132px 52px 52px 16px minmax(140px,260px) minmax(0,1fr)}',
       ".hl-page[data-compact='true']{--hl-cols:132px 16px minmax(120px,220px) minmax(0,1fr)}",
@@ -401,7 +440,55 @@ window.__ModuleLoader__.load({
       '.hl-diff{min-height:64px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);border-radius:6px;flex:1;overflow:auto;padding:8px;font-family:var(--ds-font-family-code,ui-monospace,SFMono-Regular,Consolas,monospace);font-size:12px;line-height:1.55;white-space:pre-wrap}',
       '.hl-diff-add{color:var(--dsw-alias-state-success-primary)}',
       '.hl-diff-del{color:var(--dsw-alias-state-error-primary)}',
+      ".hd-host{position:relative;display:flex;align-items:center;justify-content:center;margin-left:6px}",
+      ".hd-entry{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:6px;width:32px;height:32px;padding:0;border:0;border-radius:7px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer;transition:background-color .12s ease,color .12s ease}",
+      ".hd-entry:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}",
+      ".hd-entry:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}",
+      ".hd-entry[data-wide]{width:auto;padding:0 6px;justify-content:flex-start}",
+      ".hd-glyph{display:block;flex:none}",
+      ".hd-label{font-size:12px;line-height:16px;white-space:nowrap}",
+      ".hd-pill{flex:none;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--dsw-alias-state-success-primary);color:#fff;font:600 9.5px/15px system-ui,sans-serif;text-align:center}",
+      ".hd-entry[data-tone='error'] .hd-pill{background:var(--dsw-alias-state-error-primary)}",
+      ".hd-entry[data-tone='idle'] .hd-pill{display:none}",
+      ".hd-entry[data-tone='idle'] .hd-dot{display:block}",
+      ".hd-dot{display:none;position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-idle-primary);box-shadow:0 0 0 2px var(--dsw-specific-sidebar-fill,transparent);pointer-events:none}",
+      ".hd-entry:not([data-wide]) .hd-pill{position:absolute;top:-2px;right:-2px;box-shadow:0 0 0 2px var(--dsw-specific-sidebar-fill,transparent)}",
+      ".hd-entry[data-wide] .hd-pill{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);box-shadow:none}",
+      ".hd-entry[data-wide][data-tone='ok'] .hd-pill{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 22%,transparent);color:var(--dsw-alias-state-success-primary)}",
+      ".hd-pop{position:fixed;z-index:1000;width:320px;max-width:calc(100vw - 24px);padding:0;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-overlay);box-shadow:0 16px 40px rgba(0,0,0,.34),0 2px 8px rgba(0,0,0,.18);overflow:hidden;color:var(--dsw-alias-label-primary);font:12px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;animation:hd-pop-in .12s ease-out}",
+      "@keyframes hd-pop-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}",
+      ".hd-pop-head{display:flex;align-items:center;gap:6px;padding:10px 8px 8px 12px}",
+      ".hd-pop-title{font-size:12px;font-weight:600;letter-spacing:.01em}",
+      ".hd-pop-count{color:var(--dsw-alias-label-secondary);font-size:11px}",
+      ".hd-refresh{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}",
+      ".hd-refresh:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}",
+      ".hd-list{list-style:none;margin:0;padding:0 6px 6px;display:flex;flex-direction:column;gap:2px;max-height:300px;overflow:auto}",
+      ".hd-item{display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:8px}",
+      ".hd-item:hover{background:var(--dsw-alias-bg-layer-2)}",
+      ".hd-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}",
+      ".hd-line{display:flex;align-items:baseline;gap:6px;min-width:0}",
+      ".hd-model{flex:none;font-size:12.5px;font-weight:600;letter-spacing:-.01em}",
+      ".hd-id{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:10.5px}",
+      ".hd-tag{flex:none;height:15px;padding:0 5px;border-radius:5px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);font:9.5px/13px system-ui,sans-serif}",
+      ".hd-chips{display:flex;flex-wrap:wrap;gap:4px}",
+      ".hd-chip{height:17px;padding:0 6px;border-radius:5px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);font:10px/17px system-ui,sans-serif;white-space:nowrap}",
+      ".hd-os{color:var(--dsw-alias-label-secondary);font-size:10px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+      ".hd-state{flex:none;display:inline-flex;align-items:center;gap:5px;margin-top:2px;color:var(--dsw-alias-label-secondary);font-size:10px}",
+      ".hd-state::before{content:\"\";width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-state-success-primary)}",
+      ".hd-empty{padding:18px 16px;text-align:center;color:var(--dsw-alias-label-secondary)}",
+      ".hd-empty-title{margin-bottom:3px;color:var(--dsw-alias-label-primary);font-size:12px}",
+      ".hd-hint{font-size:11px;line-height:17px;opacity:.85}",
+      ".hd-foot{padding:7px 12px;border-top:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);font-size:10.5px}",
+      ".hd-error{color:var(--dsw-alias-state-error-primary)}",
     ].join('')
+
+    if (typeof document !== 'undefined' && document.getElementById(STYLE_ID) === null) {
+      const style = document.createElement('style')
+      style.id = STYLE_ID
+      style.textContent = CSS
+      document.head.appendChild(style)
+    }
+
 
     /**
      * A trigger plus its dropdown panel, closed by an outside press or Escape.
@@ -876,7 +963,6 @@ window.__ModuleLoader__.load({
         'data-wrap': wrap ? 'true' : 'false',
         style: { '--hl-font': `${fontSize}px`, '--hl-cols': gridColumns },
       },
-      h('style', null, CSS),
       h('header', { className: 'hl-head' },
         h('div', { className: 'hl-heading' },
           h('h1', { className: 'hl-title' }, t('title')),
@@ -1295,6 +1381,183 @@ window.__ModuleLoader__.load({
       )
     }
 
+
+    /**
+     * Poll the Host device list. Slower while the popover is closed so the
+     * badge stays honest without a request every few seconds.
+     * @param {boolean} open whether the popover is showing.
+     * @returns {[{ ok: boolean, devices: string[], error: string | null }, () => Promise<void>]}
+     */
+    function useDeviceList(open) {
+      const [state, setState] = React.useState({ ok: true, devices: [], details: {}, error: null })
+      const load = React.useCallback(async () => {
+        try {
+          const response = await fetch(DEVICES_API)
+          const data = await response.json()
+          const devices = Array.isArray(data.devices) ? data.devices.filter((id) => typeof id === 'string') : []
+          const details = {}
+          if (Array.isArray(data.details)) {
+            for (const entry of data.details) {
+              if (entry !== null && typeof entry === 'object' && typeof entry.id === 'string') details[entry.id] = entry
+            }
+          }
+          setState({ ok: data.ok !== false, devices, details, error: typeof data.error === 'string' ? data.error : null })
+        } catch (error) {
+          setState({ ok: false, devices: [], error: error instanceof Error ? error.message : String(error) })
+        }
+      }, [])
+      React.useEffect(() => {
+        load()
+        const timer = window.setInterval(load, open ? DEVICE_POLL_OPEN : DEVICE_POLL_CLOSED)
+        return () => window.clearInterval(timer)
+      }, [load, open])
+      return [state, load]
+    }
+
+    /**
+     * Sidebar-foot badge: a dot for liveness, a count of connected devices and a
+     * popover that spells out which ones. The log panel already listed devices
+     * inside its own header, but that only helps once the panel is open — the
+     * question "is a device still attached" comes up while doing something else.
+     * @param {{ t?: (key: string) => string }} props slot props.
+     * @returns {object} element.
+     */
+    function formatGb(mb) {
+      if (typeof mb !== 'number' || !Number.isFinite(mb)) return ''
+      const gb = mb / 1024
+      return gb >= 10 ? String(Math.round(gb)) : gb.toFixed(1)
+    }
+
+    function deviceChips(t, info) {
+      const chips = []
+      if (typeof info.apiVersion === 'number') chips.push(t('devicesApi', { v: info.apiVersion }))
+      if (typeof info.batteryLevel === 'number') chips.push(t('devicesBattery', { v: info.batteryLevel }))
+      if (typeof info.chargingStatus === 'string' && info.chargingStatus !== '') {
+        const status = info.chargingStatus.toLowerCase()
+        chips.push(status === 'charging'
+          ? t('devicesCharging')
+          : (status === 'full'
+              ? t('devicesFull')
+              : (status === 'discharging' ? t('devicesDischarging') : info.chargingStatus)))
+      }
+      if (typeof info.batteryTempC === 'number') chips.push(t('devicesTemp', { v: info.batteryTempC }))
+      if (typeof info.memoryTotalMb === 'number' && typeof info.memoryAvailableMb === 'number') {
+        chips.push(t('devicesMemory', {
+          used: formatGb(info.memoryTotalMb - info.memoryAvailableMb),
+          total: formatGb(info.memoryTotalMb),
+        }))
+      }
+      if (typeof info.storageUsedPercent === 'number') chips.push(t('devicesStorage', { v: info.storageUsedPercent }))
+      return chips
+    }
+
+    function DeviceIndicator(props) {
+      const t = translator(props.t)
+      const wide = props.wide === true
+      const [open, setOpen] = React.useState(false)
+      const [anchor, setAnchor] = React.useState(null)
+      const buttonRef = React.useRef(null)
+      const [state, reload] = useDeviceList(open)
+      const devices = state.devices
+      const details = state.details
+      const tone = state.error !== null ? 'error' : (devices.length > 0 ? 'ok' : 'idle')
+
+      const toggle = () => {
+        const next = !open
+        if (next && buttonRef.current !== null) {
+          const rect = buttonRef.current.getBoundingClientRect()
+          setAnchor({
+            left: Math.max(8, Math.min(rect.left, window.innerWidth - 328)),
+            bottom: Math.max(8, window.innerHeight - rect.top + 8),
+          })
+        }
+        setOpen(next)
+        if (next) reload()
+      }
+
+      React.useEffect(() => {
+        if (!open) return undefined
+        const onPointerDown = (event) => {
+          if (buttonRef.current !== null && !buttonRef.current.contains(event.target)) setOpen(false)
+        }
+        const onKeyDown = (event) => {
+          if (event.key === 'Escape') setOpen(false)
+        }
+        document.addEventListener('mousedown', onPointerDown)
+        document.addEventListener('keydown', onKeyDown)
+        return () => {
+          document.removeEventListener('mousedown', onPointerDown)
+          document.removeEventListener('keydown', onKeyDown)
+        }
+      }, [open])
+
+      return h('div', { className: 'hd-host' },
+        h('button', {
+          ref: buttonRef,
+          type: 'button',
+          className: 'hd-entry',
+          'data-tone': tone,
+          'data-wide': wide ? '' : undefined,
+          'aria-label': t('devicesEntry'),
+          'aria-expanded': open,
+          title: t('devicesTitle') + ' · ' + devices.length,
+          onClick: toggle,
+        },
+          h('svg', { className: 'hd-glyph', width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': 'true', focusable: 'false' },
+            h('rect', { x: 4.5, y: 1.5, width: 7, height: 13, rx: 2, stroke: 'currentColor', strokeWidth: 1.2 }),
+            h('path', { d: 'M7 12.4h2', stroke: 'currentColor', strokeWidth: 1.2, strokeLinecap: 'round' }),
+          ),
+          wide ? h('span', { className: 'hd-label' }, t('devicesLabel')) : null,
+          h('span', { className: 'hd-pill' }, devices.length > 9 ? '9+' : String(devices.length)),
+          h('span', { className: 'hd-dot' }),
+        ),
+        open && anchor !== null
+          ? h('div', { className: 'hd-pop', role: 'dialog', style: { left: anchor.left + 'px', bottom: anchor.bottom + 'px' } },
+              h('div', { className: 'hd-pop-head' },
+                h('span', { className: 'hd-pop-title' }, t('devicesTitle')),
+                h('span', { className: 'hd-pop-count' }, t('devicesCount', { n: devices.length })),
+                h('button', {
+                  type: 'button',
+                  className: 'hd-refresh',
+                  title: t('refreshDevices'),
+                  'aria-label': t('refreshDevices'),
+                  onClick: () => reload(),
+                },
+                  h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none', 'aria-hidden': 'true', focusable: 'false' },
+                    h('path', { d: 'M12.8 8a4.8 4.8 0 1 1-1.5-3.5', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round' }),
+                    h('path', { d: 'M12.9 2.7v2.6h-2.6', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+                  ),
+                ),
+              ),
+              state.error !== null
+                ? h('div', { className: 'hd-empty hd-error' }, state.error)
+                : (devices.length === 0
+                    ? h('div', { className: 'hd-empty' },
+                        h('div', { className: 'hd-empty-title' }, t('devicesEmpty')),
+                        h('div', { className: 'hd-hint' }, t('devicesHint')),
+                      )
+                    : h('ul', { className: 'hd-list' }, devices.map((id, index) => {
+                        const info = details[id] ?? { id }
+                        const chips = deviceChips(t, info)
+                        return h('li', { key: id, className: 'hd-item' },
+                          h('div', { className: 'hd-body' },
+                            h('div', { className: 'hd-line' },
+                              h('span', { className: 'hd-model' }, typeof info.model === 'string' ? info.model : id),
+                              typeof info.model === 'string' ? h('span', { className: 'hd-id' }, id) : null,
+                              index === 0 ? h('span', { className: 'hd-tag' }, t('devicesDefault')) : null,
+                            ),
+                            chips.length > 0 ? h('div', { className: 'hd-chips' }, chips.map((chip, chipIndex) => h('span', { key: chipIndex, className: 'hd-chip' }, chip))) : null,
+                            typeof info.osVersion === 'string' ? h('div', { className: 'hd-os' }, info.osVersion) : null,
+                          ),
+                          h('span', { className: 'hd-state' }, t('devicesConnected')),
+                        )
+                      }))),
+              devices.length > 0 ? h('div', { className: 'hd-foot' }, t('devicesFoot')) : null,
+            )
+          : null,
+      )
+    }
+
     return {
       inject: ['slots', 'locale'],
       // Plain-JS render internals exercised by harmony-logs-selftest.mjs; the
@@ -1317,6 +1580,16 @@ window.__ModuleLoader__.load({
           locale: NS,
           label: () => t('panel'),
         }, PanelIcon))
+
+        // A footer badge rather than another panel entry: the device count has to
+        // be visible without opening anything.
+        ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+          name: 'sidebar.footer.action',
+          id: 'harmony-devices',
+          order: 90,
+          locale: NS,
+          label: () => t('devicesEntry'),
+        }, DeviceIndicator))
       },
     }
   },

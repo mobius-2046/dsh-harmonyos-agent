@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { apply, SKILLS } from '../index.js'
 import { harmonyPreset } from '../lib/preset.js'
+import { parseDeviceInfo } from '../lib/deviceinfo.js'
 import {
   createHarmonyTools,
   parseFaultLog,
@@ -409,6 +410,59 @@ check('every t() key exists in both client dictionaries', () => {
     return (source.match(pattern) ?? []).length < 2
   })
   assert.deepEqual(missing, [])
+})
+
+check('client registers a footer device badge that polls and lists ids', () => {
+  const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  assert.ok(source.includes("ctx.slots.inject('sidebar.footer.action'"), 'footer badge slot missing')
+  assert.ok(source.includes("id: 'harmony-devices'"), 'footer badge id missing')
+  const closed = Number(source.match(/const DEVICE_POLL_CLOSED = (\d+)/)?.[1])
+  const open = Number(source.match(/const DEVICE_POLL_OPEN = (\d+)/)?.[1])
+  assert.ok(closed > open && open >= 1000, 'badge must poll slower while closed, and not spin')
+  assert.ok(source.includes("className: 'hd-item'"), 'popover must render one row per device id')
+  assert.ok(source.includes("t('devicesCount', { n: devices.length })"), 'popover must show the count')
+})
+
+check('parseDeviceInfo turns the device probe into fields and omits what is absent', () => {
+  const sample = [
+    'M=TaiHang2105',
+    'S=Taihang_V3.02.00.045U',
+    'A=20',
+    'B=100',
+    'T=330',
+    'V=4300000',
+    'C=Charging',
+    'U=53626.16',
+    'MT=MemTotal:        7590740 kB',
+    'MA=MemAvailable:    5121564 kB',
+    'D=/dev/block/sda87 241076224 17909688 223166536 8% /data',
+  ].join('\n')
+  const info = parseDeviceInfo('009180680c438f8f', sample)
+  assert.equal(info.id, '009180680c438f8f')
+  assert.equal(info.model, 'TaiHang2105')
+  assert.equal(info.osVersion, 'Taihang_V3.02.00.045U')
+  assert.equal(info.apiVersion, 20)
+  assert.equal(info.batteryLevel, 100)
+  assert.equal(info.batteryTempC, 33)
+  assert.equal(info.batteryVoltageMv, 4300)
+  assert.equal(info.chargingStatus, 'Charging')
+  assert.equal(info.uptimeSeconds, 53626)
+  assert.equal(info.memoryTotalMb, 7413)
+  assert.equal(info.storageUsedPercent, 8)
+  assert.deepEqual(parseDeviceInfo('x', 'M=\nA='), { id: 'x' })
+  assert.deepEqual(parseDeviceInfo('y', 'garbage'), { id: 'y' })
+})
+
+check('devices route attaches details and the badge renders them as chips', () => {
+  const base = new URL('../', import.meta.url)
+  const route = readFileSync(new URL('lib/hilog.js', base), 'utf8')
+  assert.match(route, /collectDevicesInfo\(result\.devices\)/)
+  assert.match(route, /details,/)
+  const client = readFileSync(new URL('client.js', base), 'utf8')
+  assert.match(client, /hd-chip/)
+  assert.match(client, /devicesMemory/)
+  assert.match(client, /STYLE_ID/)
+  assert.ok(!/h\('style', null, CSS\)/.test(client), 'badge styles must not live inside the log panel')
 })
 
 check('package.json declares engines.dsh and a semver version', () => {
