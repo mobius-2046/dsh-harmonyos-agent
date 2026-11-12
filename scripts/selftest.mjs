@@ -13,12 +13,14 @@ import { join } from 'node:path'
 import { apply, SKILLS } from '../index.js'
 import { harmonyPreset } from '../lib/preset.js'
 import { parseDeviceInfo } from '../lib/deviceinfo.js'
+import { explain } from '../lib/errorcodes.js'
 import {
   createHarmonyTools,
   parseFaultLog,
   filterLogLines,
   filterByPid,
   findUiNode,
+  findUiNodes,
   flattenUi,
   inferTarget,
   parseBounds,
@@ -108,11 +110,11 @@ check('description advertises multi-device work', () => {
 })
 
 check('parseTargets maps default, all and explicit lists', () => {
-  assert.deepEqual(parseTargets(['a', 'b'], undefined), { ids: ['a'], unknown: [] })
-  assert.deepEqual(parseTargets(['a', 'b'], 'all'), { ids: ['a', 'b'], unknown: [] })
-  assert.deepEqual(parseTargets(['a', 'b'], 'b,a'), { ids: ['b', 'a'], unknown: [] })
-  assert.deepEqual(parseTargets(['a', 'b'], 'a,c'), { ids: ['a'], unknown: ['c'] })
-  assert.deepEqual(parseTargets([], 'all'), { ids: [], unknown: [] })
+  assert.deepEqual(parseTargets(['a', 'b'], undefined), { ids: ['a'], unknown: [], remembered: false })
+  assert.deepEqual(parseTargets(['a', 'b'], 'all'), { ids: ['a', 'b'], unknown: [], remembered: false })
+  assert.deepEqual(parseTargets(['a', 'b'], 'b,a'), { ids: ['b', 'a'], unknown: [], remembered: false })
+  assert.deepEqual(parseTargets(['a', 'b'], 'a,c'), { ids: ['a'], unknown: ['c'], remembered: false })
+  assert.deepEqual(parseTargets([], 'all'), { ids: [], unknown: [], remembered: false })
 })
 
 check('plan mode refuses build/compile/deps/run/deploy/app before touching hvigor', async () => {
@@ -463,6 +465,41 @@ check('devices route attaches details and the badge renders them as chips', () =
   assert.match(client, /devicesMemory/)
   assert.match(client, /STYLE_ID/)
   assert.ok(!/h\('style', null, CSS\)/.test(client), 'badge styles must not live inside the log panel')
+})
+
+check('error codes map to one concrete next action each', () => {
+  const missing = explain("Failure[INSTALL_FAILED_VERIFY_APP_PKCS7_FAIL] code:9568305 entry's dependent module: common does not exist")
+  assert.equal(missing.length, 1)
+  assert.match(missing[0], /hsp=true/)
+
+  const full = explain('error: install failed due to insufficient space, code:9568305')
+  assert.equal(full.length, 1)
+  assert.match(full[0], /空间/)
+  assert.notEqual(full[0], missing[0], 'the two 9568305 cases must not share one hint')
+
+  assert.match(explain('code:9568332 verify signature failed')[0], /AGC/)
+  assert.deepEqual(explain('hvigor task finished with no code at all'), [])
+  assert.ok(explain('9568332 and 1300002 and 401 and 202').length <= 3, 'hints must stay bounded')
+})
+
+check('parseTargets remembers the last device but never a disconnected one', () => {
+  const connected = ['A', 'B']
+  assert.deepEqual(parseTargets(connected, undefined, 'B'), { ids: ['B'], unknown: [], remembered: true })
+  assert.deepEqual(parseTargets(connected, undefined, 'gone'), { ids: ['A'], unknown: [], remembered: false })
+  assert.deepEqual(parseTargets(connected, undefined, undefined), { ids: ['A'], unknown: [], remembered: false })
+  assert.deepEqual(parseTargets(connected, 'all', 'B'), { ids: ['A', 'B'], unknown: [], remembered: false })
+})
+
+check('findUiNodes returns matches best-first without touching the device', () => {
+  const nodes = [
+    { type: 'Button', text: '取消同步', clickable: false, bounds: { x: 1, y: 1 } },
+    { type: 'Button', text: '取消', clickable: true, bounds: { x: 2, y: 2 } },
+    { type: 'Text', text: '确定', clickable: true, bounds: { x: 3, y: 3 } },
+  ]
+  const hits = findUiNodes(nodes, '取消')
+  assert.equal(hits.length, 2)
+  assert.equal(hits[0].text, '取消')
+  assert.deepEqual(findUiNodes(nodes, '不存在'), [])
 })
 
 check('package.json declares engines.dsh and a semver version', () => {
