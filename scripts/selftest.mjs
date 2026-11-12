@@ -17,6 +17,7 @@ import { createLogRoutes } from '../lib/hilog.js'
 import { parseDeviceInfo } from '../lib/deviceinfo.js'
 import { lookupApi, readDoc, searchDocs } from '../lib/docs.js'
 import { explain } from '../lib/errorcodes.js'
+import { waitUntil } from '../lib/wait.js'
 import { inspectCertificate, parseSigningConfigs, signingReport } from '../lib/signing.js'
 import {
   createHarmonyTools,
@@ -87,7 +88,7 @@ check('action enum covers every documented action', () => {
 check('op covers the four app lifecycle operations and the five ui operations', () => {
   const values = [...tool.parameters.properties.op.enum]
   for (const value of ['start', 'stop', 'clear', 'uninstall']) assert.ok(values.includes(value), value)
-  for (const value of ['dump', 'tap', 'input', 'key', 'swipe']) assert.ok(values.includes(value), value)
+  for (const value of ['dump', 'find', 'wait', 'tap', 'input', 'key', 'swipe']) assert.ok(values.includes(value), value)
 })
 
 check('output schema is object-root and requires action/ok/summary', () => {
@@ -209,12 +210,14 @@ check('ui dump flattens a hierarchy and parses bounds', () => {
   assert.equal(findUiNode(nodes, '忘记').text, '忘记密码')
 })
 
-check('ui tap is refused while plan mode is active but dump is allowed', async () => {
-  const planCtx = { planMode: { get: () => ({ active: true }) } }
-  const tapped = await tool.execute({ action: 'ui', op: 'tap', text: '登录' }, planCtx)
+await checkAsync('ui tap is refused while plan mode is active but dump/find/wait are allowed', async () => {
+  const [guarded] = createHarmonyTools({ planMode: { get: () => ({ active: true }) } })
+  const tapped = await guarded.execute({ action: 'ui', op: 'tap', text: '登录' }, {})
   assert.equal(tapped.ok, false)
   assert.equal(tapped.data.stage, 'plan-guard')
-  const dumped = await tool.execute({ action: 'ui', op: 'dump' }, planCtx)
+  const waited = await guarded.execute({ action: 'ui', op: 'wait', text: '登录' }, {})
+  assert.notEqual(waited.data?.stage, 'plan-guard', 'wait only reads the tree')
+  const dumped = await guarded.execute({ action: 'ui', op: 'dump' }, {})
   assert.notEqual(dumped.data?.stage, 'plan-guard')
 })
 
@@ -639,6 +642,24 @@ await checkAsync('diagnostic budget separates ok, timeout, skipped and error', a
   const spent = createBudget(0, { perProbeMs: 80 })
   assert.equal((await spent.probe('never', async () => 1)).status, 'skipped')
   assert.equal(budget.probes.length, 3)
+})
+
+await checkAsync('waitUntil stops at the first success and reports the deadline', async () => {
+  let fakeNow = 0
+  const sleep = async (ms) => { fakeNow += ms }
+  let calls = 0
+  const first = await waitUntil(async () => { calls += 1; return { ok: calls >= 3, value: calls } }, { timeoutMs: 10_000, intervalMs: 400, now: () => fakeNow, sleep })
+  assert.equal(first.ok, true)
+  assert.equal(first.attempts, 3)
+  assert.equal(first.value, 3)
+
+  fakeNow = 0
+  let probes = 0
+  const never = await waitUntil(async () => { probes += 1; return { ok: false, value: 'still there' } }, { timeoutMs: 1_000, intervalMs: 400, now: () => fakeNow, sleep })
+  assert.equal(never.ok, false)
+  assert.equal(never.value, 'still there')
+  assert.equal(probes, 4)
+  assert.equal(fakeNow, 1_000)
 })
 
 check('signing report reads the config, the materials and the product reference', () => {
