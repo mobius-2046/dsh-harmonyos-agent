@@ -68,20 +68,23 @@ window.__ModuleLoader__.load({
      * Read stored snapshots, dropping anything that is not the expected shape.
      * A blocked or corrupted store degrades to "no snapshots" rather than
      * throwing inside render.
-     * @returns {{ id: string, at: string, device: string, lines: string[] }[]}
+     * @returns {{ id: string, at: string, name: string, device: string, lines: string[] }[]}
      */
     function readSnapshots() {
       try {
         const raw = window.localStorage.getItem(SNAPSHOT_KEY)
         const parsed = raw === null ? [] : JSON.parse(raw)
         if (!Array.isArray(parsed)) return []
-        return parsed.filter((entry) => entry !== null
-          && typeof entry === 'object'
-          && typeof entry.id === 'string'
-          && typeof entry.at === 'string'
-          && typeof entry.device === 'string'
-          && Array.isArray(entry.lines)
-          && entry.lines.every((line) => typeof line === 'string'))
+        return parsed
+          .filter((entry) => entry !== null
+            && typeof entry === 'object'
+            && typeof entry.id === 'string'
+            && typeof entry.at === 'string'
+            && typeof entry.device === 'string'
+            && Array.isArray(entry.lines)
+            && entry.lines.every((line) => typeof line === 'string'))
+          // Snapshots written before names existed keep working: name is optional.
+          .map((entry) => ({ ...entry, name: typeof entry.name === 'string' ? entry.name : '' }))
       } catch {
         return []
       }
@@ -170,6 +173,12 @@ window.__ModuleLoader__.load({
       snapshotSaved: '已保存快照（{n} 行）',
       snapshotsNone: '还没有快照。点「快照」把当前日志存一份，等复现后再对比。',
       compareTitle: '对比两份快照',
+      snapshotListHint: '给快照起个名字，或者导出成文件留给别人。',
+      snapshotRename: '改名',
+      snapshotRenameSave: '保存',
+      snapshotNamePlaceholder: '例如：复现前 / 登录后',
+      snapshotExport: '导出',
+      snapshotDelete: '删除',
       compareBase: '基准',
       compareTarget: '当前',
       compareRun: '开始对比',
@@ -267,6 +276,12 @@ window.__ModuleLoader__.load({
       snapshotSaved: 'Snapshot saved ({n} lines)',
       snapshotsNone: 'No snapshots yet. Take one before reproducing, another after, then compare.',
       compareTitle: 'Compare two snapshots',
+      snapshotListHint: 'Name a snapshot, or export it to hand the log to someone else.',
+      snapshotRename: 'Rename',
+      snapshotRenameSave: 'Save',
+      snapshotNamePlaceholder: 'e.g. before repro / after login',
+      snapshotExport: 'Export',
+      snapshotDelete: 'Delete',
       compareBase: 'Baseline',
       compareTarget: 'Current',
       compareRun: 'Compare',
@@ -442,6 +457,12 @@ window.__ModuleLoader__.load({
       '.hl-compare{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;flex-direction:column;gap:8px;max-height:52%;padding:12px;display:flex}',
       '.hl-compare-head{justify-content:space-between;align-items:center;gap:10px;display:flex;flex-wrap:wrap}',
       '.hl-compare-title{margin:0;font-size:13px;font-weight:500;line-height:20px}',
+      '.hl-snap-list{border-top:1px solid var(--dsw-alias-border-l2);flex-direction:column;gap:4px;padding-top:8px;display:flex;overflow-y:auto}',
+      '.hl-snap-row{align-items:center;gap:8px;padding:2px 0;display:flex}',
+      '.hl-snap-name{flex:0 0 auto;font-size:12.5px;font-weight:500;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.hl-snap-meta{color:var(--dsw-alias-label-secondary);flex:1 1 auto;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.hl-snap-actions{flex:0 0 auto;gap:4px;display:flex}',
+      '.hl-snap-input{min-width:140px}',
       '.hl-compare-row{align-items:center;gap:6px;display:flex;flex-wrap:wrap}',
       '.hl-compare-hint{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}',
       '.hl-diff{min-height:64px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);border-radius:6px;flex:1;overflow:auto;padding:8px;font-family:var(--ds-font-family-code,ui-monospace,SFMono-Regular,Consolas,monospace);font-size:12px;line-height:1.55;white-space:pre-wrap}',
@@ -583,6 +604,8 @@ window.__ModuleLoader__.load({
       const [compareBase, setCompareBase] = React.useState('')
       const [compareTarget, setCompareTarget] = React.useState('')
       const [compareResult, setCompareResult] = React.useState(null)
+      const [renameId, setRenameId] = React.useState(null)
+      const [renameDraft, setRenameDraft] = React.useState('')
 
       const surfaceRef = React.useRef(null)
       const idRef = React.useRef(0)
@@ -895,6 +918,7 @@ window.__ModuleLoader__.load({
         const entry = {
           id: `${now.getTime()}`,
           at: now.toLocaleTimeString(undefined, { hour12: false }),
+          name: '',
           device: device === '' ? t('devicesNone') : device,
           lines: rows.slice(-SNAPSHOT_LINES_MAX),
         }
@@ -904,6 +928,48 @@ window.__ModuleLoader__.load({
           return next
         })
         setCompareResult(null)
+      }
+
+      /**
+       * A snapshot is only useful if it can be named: "after login" means
+       * something to the next person, "10:31:02" does not.
+       */
+      const snapshotTitle = (entry) => (entry.name ? entry.name : entry.at)
+
+      const renameSnapshot = (id, name) => {
+        setSnapshots((current) => {
+          const next = current.map((entry) => (entry.id === id ? { ...entry, name } : entry))
+          storeSnapshots(next)
+          return next
+        })
+        setRenameId(null)
+      }
+
+      const deleteSnapshot = (id) => {
+        setSnapshots((current) => {
+          const next = current.filter((entry) => entry.id !== id)
+          storeSnapshots(next)
+          return next
+        })
+        setCompareResult(null)
+        if (compareBase === id) setCompareBase('')
+        if (compareTarget === id) setCompareTarget('')
+      }
+
+      const exportSnapshot = (entry) => {
+        try {
+          const blob = new Blob([`${entry.lines.join('\n')}\n`], { type: 'text/plain;charset=utf-8' })
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = `harmony-${(entry.name || entry.at).replace(/[^\w.-]+/g, '-')}-${entry.device}.log`
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          setTimeout(() => URL.revokeObjectURL(url), 1000)
+        } catch {
+          // A blocked download is not worth an exception inside the panel.
+        }
       }
 
       const openCompare = () => {
@@ -1195,7 +1261,7 @@ window.__ModuleLoader__.load({
                 'aria-label': t('compareBase'),
                 value: compareBase,
                 onChange: (event) => setCompareBase(event.target.value),
-              }, snapshots.map((entry) => h('option', { key: entry.id, value: entry.id }, `${entry.at} · ${entry.device} · ${entry.lines.length}`)))),
+              }, snapshots.map((entry) => h('option', { key: entry.id, value: entry.id }, `${snapshotTitle(entry)} · ${entry.device} · ${entry.lines.length}`)))),
             h('label', { className: 'hl-font' },
               h('span', null, t('compareTarget')),
               h('select', {
@@ -1203,9 +1269,35 @@ window.__ModuleLoader__.load({
                 'aria-label': t('compareTarget'),
                 value: compareTarget,
                 onChange: (event) => setCompareTarget(event.target.value),
-              }, snapshots.map((entry) => h('option', { key: entry.id, value: entry.id }, `${entry.at} · ${entry.device} · ${entry.lines.length}`)))),
+              }, snapshots.map((entry) => h('option', { key: entry.id, value: entry.id }, `${snapshotTitle(entry)} · ${entry.device} · ${entry.lines.length}`)))),
             h('button', { className: 'hl-control', type: 'button', onClick: runCompare }, t('compareRun')),
           ),
+        snapshots.length === 0 ? null : h('div', { className: 'hl-snap-list' },
+          h('p', { className: 'hl-compare-hint' }, t('snapshotListHint')),
+          ...snapshots.map((entry) => h('div', { key: entry.id, className: 'hl-snap-row' },
+            renameId === entry.id
+              ? h('input', {
+                className: 'hl-control hl-snap-input',
+                autoFocus: true,
+                value: renameDraft,
+                placeholder: t('snapshotNamePlaceholder'),
+                onInput: (event) => setRenameDraft(event.target.value),
+                onKeyDown: (event) => {
+                  if (event.key === 'Enter') renameSnapshot(entry.id, renameDraft.trim())
+                  if (event.key === 'Escape') setRenameId(null)
+                },
+              })
+              : h('span', { className: 'hl-snap-name', title: entry.at }, snapshotTitle(entry)),
+            h('span', { className: 'hl-snap-meta' }, `${entry.at} · ${entry.device} · ${entry.lines.length}`),
+            h('span', { className: 'hl-snap-actions' },
+              renameId === entry.id
+                ? h('button', { className: 'hl-control', type: 'button', onClick: () => renameSnapshot(entry.id, renameDraft.trim()) }, t('snapshotRenameSave'))
+                : h('button', { className: 'hl-control', type: 'button', onClick: () => { setRenameId(entry.id); setRenameDraft(entry.name || '') } }, t('snapshotRename')),
+              h('button', { className: 'hl-control', type: 'button', onClick: () => exportSnapshot(entry) }, t('snapshotExport')),
+              h('button', { className: 'hl-control', type: 'button', onClick: () => deleteSnapshot(entry.id) }, t('snapshotDelete')),
+            ),
+          )),
+        ),
         compareResult === null ? null : h('div', { className: 'hl-diff' },
           h('div', null, compareResult.added.length === 0 && compareResult.removed.length === 0
             ? t('diffIdentical')
