@@ -22,6 +22,7 @@ import { assertUi, uiFingerprint } from '../lib/uiassert.js'
 import { inspectCertificate, parseSigningConfigs, signingReport } from '../lib/signing.js'
 import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
 import { attributeFailure } from '../lib/attribute.js'
+import { formatMatrixRow, parseDeviceMatrix } from '../lib/devicematrix.js'
 import {
   createHarmonyTools,
   parseFaultLog,
@@ -124,6 +125,36 @@ check('parseTargets maps default, all and explicit lists', () => {
   assert.deepEqual(parseTargets(['a', 'b'], 'b,a'), { ids: ['b', 'a'], unknown: [], remembered: false })
   assert.deepEqual(parseTargets(['a', 'b'], 'a,c'), { ids: ['a'], unknown: ['c'], remembered: false })
   assert.deepEqual(parseTargets([], 'all'), { ids: [], unknown: [], remembered: false })
+})
+
+check('parseDeviceMatrix turns a per-device plan into actions', () => {
+  const plan = parseDeviceMatrix('a=run; b=install ;c=uninstall', ['a', 'b', 'c'])
+  assert.deepEqual(plan.errors, [])
+  assert.deepEqual(plan.unknown, [])
+  assert.deepEqual(plan.entries, [
+    { device: 'a', action: 'run' },
+    { device: 'b', action: 'install' },
+    { device: 'c', action: 'uninstall' },
+  ])
+  // A bare id is the common case: install, launch, keep it running.
+  assert.deepEqual(parseDeviceMatrix('a', ['a']).entries, [{ device: 'a', action: 'run' }])
+  // ids are not a list of characters; only "=" splits the action off.
+  assert.deepEqual(parseDeviceMatrix('a='.trim(), ['a']).entries, [])
+  assert.match(parseDeviceMatrix('a=explode', ['a']).errors[0], /不认识/)
+  assert.match(parseDeviceMatrix('a;a', ['a']).errors[0], /两次/)
+  assert.deepEqual(parseDeviceMatrix('a;b', ['a']).unknown, ['b'])
+  // Empty input is an error, not an empty plan that silently does nothing.
+  assert.match(parseDeviceMatrix('  ', ['a']).errors[0], /matrix 为空/)
+})
+
+check('formatMatrixRow shows what each device actually did', () => {
+  const line = formatMatrixRow({ device: 'a', action: 'uninstall', installed: true, started: true, logLines: 3, crashed: false, uninstalled: true })
+  assert.match(line, /a · uninstall · 装机 ✓ · 启动 ✓ · 日志 3 行 · 卸载 ✓/)
+  // install-only rows have no launch or logs: an em dash, not a fake zero.
+  const installOnly = formatMatrixRow({ device: 'b', action: 'install', installed: true, started: null, logLines: null, crashed: false, uninstalled: null })
+  assert.match(installOnly, /启动 — · 日志 —/)
+  assert.match(formatMatrixRow({ device: 'c', action: 'run', installed: false, started: null, logLines: null, crashed: false, uninstalled: null }), /装机 ✗/)
+  assert.match(formatMatrixRow({ device: 'd', action: 'run', installed: true, started: true, logLines: 2, crashed: true, uninstalled: null }), /崩溃信号/)
 })
 
 check('plan mode refuses build/compile/deps/run/deploy/app before touching hvigor', async () => {
