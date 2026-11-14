@@ -23,6 +23,7 @@ import { inspectCertificate, parseSigningConfigs, signingReport } from '../lib/s
 import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
 import { attributeFailure } from '../lib/attribute.js'
 import { formatMatrixRow, parseDeviceMatrix } from '../lib/devicematrix.js'
+import { formatAssertRow } from '../lib/uiassert.js'
 import {
   createHarmonyTools,
   parseFaultLog,
@@ -155,6 +156,26 @@ check('formatMatrixRow shows what each device actually did', () => {
   assert.match(installOnly, /启动 — · 日志 —/)
   assert.match(formatMatrixRow({ device: 'c', action: 'run', installed: false, started: null, logLines: null, crashed: false, uninstalled: null }), /装机 ✗/)
   assert.match(formatMatrixRow({ device: 'd', action: 'run', installed: true, started: true, logLines: 2, crashed: true, uninstalled: null }), /崩溃信号/)
+})
+
+check('formatAssertRow names the expectation that broke on each device', () => {
+  const pass = formatAssertRow({ device: 'a', ok: true, nodeCount: 12, fingerprint: 'abc123', checks: [{ name: '「设置」出现', pass: true, actual: 1, expected: 1 }] })
+  assert.match(pass, /- a · ✓ · 12 个节点 · 指纹 abc123$/)
+  const fail = formatAssertRow({
+    device: 'b',
+    ok: false,
+    nodeCount: 9,
+    fingerprint: 'def456',
+    checks: [
+      { name: '「设置」出现', pass: false, actual: 0, expected: 1 },
+      { name: '界面指纹一致', pass: false, actual: 'def456', expected: 'abc123' },
+    ],
+  })
+  assert.match(fail, /- b · ✗ · 9 个节点 · 指纹 def456 · 「设置」出现（实际 0，期望 1）；界面指纹一致（实际 def456，期望 abc123）/)
+  // A device whose tree could not be read has no checks; the error is the row.
+  assert.match(formatAssertRow({ device: 'c', ok: false, nodeCount: 0, fingerprint: '', checks: [], error: 'UI 树抓取失败' }), /UI 树抓取失败/)
+  // No digest must not render as the string "undefined".
+  assert.match(formatAssertRow({ device: 'd', ok: false, nodeCount: 0, fingerprint: '', checks: [] }), /指纹 —/)
 })
 
 check('plan mode refuses build/compile/deps/run/deploy/app before touching hvigor', async () => {

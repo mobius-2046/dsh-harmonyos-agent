@@ -98,7 +98,7 @@ GoalBar 显示状态；目标达成或明确失败时它会停下来。
 | `app` | `op=start/stop/clear/uninstall` 启停应用、清数据、卸载；`op=query` 查装没装、什么版本（只读） |
 | `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说；`fix: true` 时才顺手修验得出的三类（残留构建锁、缺 pnpm wrapper、缺 HSP 产物） |
 | `sign` | 构建前核对签名配置：材料文件在不在、证书什么时候过期、products 引用对不对 |
-| `ui` | `op=dump` 读界面控件树；`find` 只查不点；`wait` 等文字出现或消失；`assert` 断言界面符合预期（文字、个数或界面指纹）；`tap` 按文字点、`input` 输入、`key` 按键、`swipe` 滑动 |
+| `ui` | `op=dump` 读界面控件树；`find` 只查不点；`wait` 等文字出现或消失；`assert` 断言界面符合预期（文字、个数或界面指纹），`device=all` 时同一期望逐台跑、出一张表；`tap` 按文字点、`input` 输入、`key` 按键、`swipe` 滑动 |
 | `file` | `op=pull` 把设备文件拉回本机、`op=send` 把本机文件推到设备 |
 | `crash` | 读设备上最新的崩溃日志（jscrash / cppcrash / appfreeze），可按包名筛选，提取进程、原因与栈顶帧 |
 | `deps` | `ohpm install --all`：改了 oh-package.json5 之后同步依赖，registry 或本地 .har 的问题当场说清 |
@@ -161,6 +161,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.31.0 | `ui op=assert` 支持 `device=all`：同一期望逐台跑，结果为「N/M 台符合预期」+ 每台一行，失败行点名哪条期望、实际多少 |
 | 0.30.0 | `run` 支持 `matrix`：一条调用里按设备分工（跑 / 只装 / 跑完卸载），结果是一张设备 × 动作的表；写法错在编译前返回 |
 | 0.28.0 | 快照可改名、导出 `.log`、单条删除；名字存本地，旧快照不受影响 |
 | 0.29.0 | `app op=query`：查设备上装没装、版本号、分发类型、更新时间（只读，多设备可一次问遍） |
