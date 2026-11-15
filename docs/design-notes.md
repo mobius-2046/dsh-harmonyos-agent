@@ -126,6 +126,7 @@ bundle 通过 `link:` 接入 profile，宿主在启动时 `import` 插件模块�
 - **失败的设备不拖累成功的设备。** 每台设备的 `{installed, staged, started, crashed, logLines}` 都进 `data.devices`，`ok` 的判据是「至少一台装成功」，不是「全部成功」：多设备时总有一台可能没解锁或没空间。
 - **`device` 的三态**在 `parseTargets(connected, spec)` 里：缺省取第一台（保持旧行为）、`all` 取全部、逗号/空格列表只取交集并把未知 id 从 `unknown` 报回去——静默丢弃会让人以为装上了。
 - **plan 守卫放在 `execute` 的第一行**，早于 `resolveHvigorw` 和任何子进程：`planMode.get(agent).active` 为真时 `build/run/deploy` 直接返回 `stage: 'plan-guard'`。这样「只读」由工具强制，不依赖人格提示；也不要把它写成对 `args.action` 的字符串白名单之外的特判——`devices` / `logs` 必须仍然可用，否则 plan 阶段没法调研设备状态。
+- **`matrix` 的连通性校验要用全部设备**（0.31.1 修的 bug）：`run` 里默认的 `targets` 是「本次要操作的设备」，只给了一台；拿它去校验 matrix 会把第二行永远判成「没连接」。有 matrix 时按 `'all'` 取设备表，matrix 自己决定每台做什么。这类「校验用的集合」和「执行用的集合」不是一回事的地方，最好写成一行带注释的表达式，别复用变量。
 
 ## 设备徽标为什么不用 portal
 

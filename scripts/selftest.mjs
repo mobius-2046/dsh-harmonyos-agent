@@ -884,6 +884,16 @@ check('a failed run names the next command, not just the failing stage', () => {
   assert.match(unknown.action, /doctor/)
 })
 
+check('a matrix is checked against every device, not the default target', () => {
+  // Regression: the plan was validated against the single default device, so a
+  // correctly written two-device matrix failed with "没有连接：<second id>".
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  assert.ok(
+    source.includes("resolveTargets(exec, args.matrix ? 'all' : args.device)"),
+    'run must resolve all devices when a matrix is given',
+  )
+})
+
 const failed = results.filter((result) => !result.ok)
 for (const result of results) {
   console.log(`${result.ok ? 'ok  ' : 'FAIL'}  ${result.name}${result.ok ? '' : `\n      ${result.error}`}`)
