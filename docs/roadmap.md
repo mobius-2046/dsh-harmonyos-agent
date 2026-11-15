@@ -24,7 +24,17 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 
 ### 4. `sign` 动作（0.22.0 已交付诊断部分）
 0.22.0 先做「构建前回答签名会不会出问题」：读 `signingConfigs`、核对三个材料、解析证书有效期。
-**待办**：用 `hap-sign-tool` 真签一个 HAP —— 需要明文密码（DevEco 存的是本地加密串，CLI 解不开），所以得先定密码来源（配置文件 / 环境变量），且要有一份自签材料才测得动。
+**待办**：用 `hap-sign-tool` 真签一个 HAP —— 需要明文密码（DevEco 存的是本地加密串，CLI 解不开），且要有一份自签材料才测得动。
+
+**密码来源已定（用户 m06697）**：仿 DevEco Studio 的做法，让用户在界面里自己填，但必须明确提示「仅存放于本地，不会上传任何云端」。据此拆成三条，按顺序做：
+
+1. `settings.section` 里加一张 **HarmonyOS 签名** 设置卡：keystore 路径、keyAlias、keystore 密码、key 密码、profile/cert 路径；密码输入框 `type=password`，只显示「已保存 / 未保存」，**不回填、不回传**。卡片顶部一句固定提示：「密码只保存在本机 `~/.dsh/dsh-harmony.json`，不会上传到任何云端，也不会出现在对话里。」
+2. Host 侧新增只写不读的路由 `POST /api/harmony/sign`（保存）与 `GET /api/harmony/sign`（只返回 `{ hasKeystorePassword, hasKeyPassword, keystorePath, keyAlias }`，永不返回密码原文）；文件写入沿用 `settings.js` 的临时文件 + rename，Windows 上再把 ACL 收紧到仅当前用户。
+3. `sign` 动作加 `op=sign`：用保存的密码调 `hap-sign-tool sign-app`（密码经环境变量传给子进程，不进命令行参数，避免出现在进程列表里）；没有密码时如实说「还没配置密码，去设置页填一次」，绝不提示模型去问用户密码。
+
+验收：设置页填一次 → `sign op=sign` 用真实 keystore 签出一个 APK/HAP 并被 `hap-sign-tool verify-app` 认；对话记录、日志、`data` 里都不出现密码；删掉配置文件后 `sign` 回到「未配置」而不是报错。
+
+改动面：`client.js`（`settings.section` 卡片 + 两个 fetch）、`lib/hilog.js` 或新 `lib/signapi.js`（两条路由）、`lib/settings.js`（新字段 + ACL）、`lib/signing.js`（`signApp()`）、`lib/tools.js`（`sign` 的 `op` 参数）、selftest 与 README。
 
 ## 中期
 
