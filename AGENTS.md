@@ -7,7 +7,7 @@
 | 时段 | 允许做什么 |
 |---|---|
 | 工作日 09:00–18:00（白天） | **只做计划**：读代码、查证、写方案与验收标准。不改运行时代码（`lib/`、`client.js`、`cordis.patch.yml`、`index.js`）、不装/卸插件、不跑构建或真机回归、不发版。 |
-| 工作日 18:00 之后、周末 | 实施窗口：可以改代码、`npm test`、真机验证、装插件、推送打 tag 建 Release。 |
+| 工作日 18:00 之后、周末 | 实施窗口：可以改代码、`npm test`、真机验证、装插件、推送打 tag 建 Release。**空闲时段尽量多做**：前一项测试通过、插件装好、版本发出去之后，直接接下一条，不要每晚上只做一个就停。 |
 | 任何时段 | 用户明确说「现在就做」时，按用户说的执行；用户的时间安排优先于本表。 |
 
 理由有两条，都成立才写在这里：
@@ -21,9 +21,17 @@
 - 需要用户决定的事单独列出来，不要替用户拍板（例如签名密码放哪、演示用哪个示例工程）。
 - 计划里不要写「顺便重构」类条目；一次只排一个可验证的变化。
 
+## 开工前：设备准备提醒
+
+工作日用户下班前（约 18:30）提醒他一次，把两台设备准备好；提醒要短、可执行：
+
+> 今晚的窗口要开始了，两件事麻烦你：①两台手机都插上 USB，解锁并允许调试（`hdc list targets` 能看到两台）；②如果今晚要重装插件，先把手上的活存一下，装完可能要重启 Harness。
+
+设备没就绪时不要空等，先做不需要真机的那部分（文档、纯逻辑自测），把真机回归留到设备回来之后。真机只有一台时按一台做，结论里写明「另一台未验证」。
+
 ## 进入实施窗口时
 
-- 一次只做一个变化：改代码 → `npm test` → 真机 `node scripts/run-action.mjs …` → 递增版本并更新 `CHANGELOG.md` / `README.md` → `remove_bundle` + `install_bundle` → commit / push / tag / Release。
+- 一次只发布一个变化（保证每个版本可回滚、CHANGELOG 可读）：改代码 → `npm test` → 真机 `node scripts/run-action.mjs …` → 递增版本并更新 `CHANGELOG.md` / `README.md` → `remove_bundle` + `install_bundle` → commit / push / tag / Release。做完立刻开始下一条，不必等下一晚。
 - 真机回归必须用真实设备与真实工程，跑不通就如实写「未验证」，不要把没跑过的写成已验证。
 - 网络不稳时（github.com:443 常见）：push 用 `git -c credential.helper='!/tmp/gh-cred.sh'` 重试，仍不行就用 `%TEMP%\push-docs.mjs` 走 git data API，tag 走 `git/tags` + `git/refs`，Release 走 `%TEMP%\release.sh`。
 
