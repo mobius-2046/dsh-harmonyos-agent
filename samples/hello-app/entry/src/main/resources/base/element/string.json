@@ -1,0 +1,11 @@
+{
+  "string": [
+    { "name": "app_name", "value": "Hello Harmony" },
+    { "name": "module_desc", "value": "Demo module" },
+    { "name": "ability_desc", "value": "Demo ability" },
+    { "name": "greeting", "value": "Hello, HarmonyOS" },
+    { "name": "hint", "value": "这个工程只用来演示 dsh-harmony 的构建、安装与日志循环。" },
+    { "name": "counter", "value": "点击次数：%d" },
+    { "name": "tap_me", "value": "点我" }
+  ]
+}

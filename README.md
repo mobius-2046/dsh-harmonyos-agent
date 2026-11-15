@@ -102,6 +102,20 @@ matrix: "009180680c438f8f=install;03516892320539=run"
 
 `run` 只编译一次；结果是一张「设备 × 动作 × 结果」的表，没启动的行写 `—` 而不是 `0`。写法错（动作拼错、同一台写两次、id 不在线）在编译**之前**返回。
 
+## 想先看它跑一次？用这个示例工程
+
+仓库里带了一个最小工程 `samples/hello-app`（一个按钮、一个计数器，没有第三方依赖），构建 10 秒左右：
+
+```bash
+# 1. 让工具找到工程（第一次需要 local.properties，内容一行 sdk.dir=…）
+harmony build projectDir=<仓库>/samples/hello-app
+# 2. 装到真机并看日志（先按上一节配好签名）
+harmony sign op=sign projectDir=<仓库>/samples/hello-app
+harmony run projectDir=<仓库>/samples/hello-app device=all
+```
+
+看到 `hello-app: tap 1` 那行日志，就说明整条链路是通的。
+
 ## 签名：填一次，之后 `sign op=sign`
 
 自动构建默认出的是 unsigned HAP，真机装不上。要真签：

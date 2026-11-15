@@ -4,3 +4,9 @@ pnpm-lock.yaml
 *.log
 dist/
 .DS_Store
+
+# HarmonyOS build outputs (the sample app is built in place during demos)
+samples/**/build/
+samples/**/.hvigor/
+samples/**/oh_modules/
+samples/**/local.properties

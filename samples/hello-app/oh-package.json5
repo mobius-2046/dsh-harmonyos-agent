@@ -1,0 +1,8 @@
+{
+  "modelVersion": "6.0.1",
+  "name": "hello-app",
+  "version": "1.0.0",
+  "description": "Minimal Stage-model sample for dsh-harmony demos",
+  "dependencies": {},
+  "devDependencies": {}
+}
