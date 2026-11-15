@@ -19,7 +19,9 @@ import { lookupApi, readDoc, searchDocs } from '../lib/docs.js'
 import { explain } from '../lib/errorcodes.js'
 import { waitUntil } from '../lib/wait.js'
 import { assertUi, uiFingerprint } from '../lib/uiassert.js'
-import { inspectCertificate, parseSigningConfigs, signingReport } from '../lib/signing.js'
+import { absoluteMaterials, inspectCertificate, parseSigningConfigs, pickSignInput, signingReport } from '../lib/signing.js'
+import { saveSignSettings, signView } from '../lib/signroutes.js'
+import { signCredentials } from '../lib/settings.js'
 import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
 import { attributeFailure } from '../lib/attribute.js'
 import { formatMatrixRow, parseDeviceMatrix } from '../lib/devicematrix.js'
@@ -901,6 +903,97 @@ check('a forward-slash drive path is handed to hdc with backslashes', () => {
   assert.equal(nativePath('D:\\workspace_6\\app.hap'), 'D:\\workspace_6\\app.hap')
   assert.equal(nativePath('/data/local/tmp/a.txt'), '/data/local/tmp/a.txt')
   assert.equal(nativePath(undefined), undefined)
+})
+
+check('signing credentials resolve env first, then the local file, then nothing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'harmony-sign-'))
+  const saved = { config: process.env.DSH_HARMONY_CONFIG, ks: process.env.DSH_HARMONY_KEYSTORE_PASSWORD, kp: process.env.DSH_HARMONY_KEY_PASSWORD }
+  try {
+    process.env.DSH_HARMONY_CONFIG = join(dir, 'config.json')
+    delete process.env.DSH_HARMONY_KEYSTORE_PASSWORD
+    delete process.env.DSH_HARMONY_KEY_PASSWORD
+    assert.equal(signCredentials().source, 'none')
+
+    saveSignSettings({ keystorePath: 'C:/k.p12', keyAlias: 'debugKey', keystorePassword: 'file-secret' })
+    const fromFile = signCredentials()
+    assert.equal(fromFile.source, 'file')
+    assert.equal(fromFile.keystorePassword, 'file-secret')
+    // keyPassword defaults to the keystore one at call time, not here.
+    assert.equal(fromFile.keyPassword, undefined)
+
+    process.env.DSH_HARMONY_KEYSTORE_PASSWORD = 'env-secret'
+    const fromEnv = signCredentials()
+    assert.equal(fromEnv.source, 'env')
+    assert.equal(fromEnv.keystorePassword, 'env-secret')
+  } finally {
+    if (saved.config === undefined) delete process.env.DSH_HARMONY_CONFIG
+    else process.env.DSH_HARMONY_CONFIG = saved.config
+    if (saved.ks === undefined) delete process.env.DSH_HARMONY_KEYSTORE_PASSWORD
+    else process.env.DSH_HARMONY_KEYSTORE_PASSWORD = saved.ks
+    if (saved.kp === undefined) delete process.env.DSH_HARMONY_KEY_PASSWORD
+    else process.env.DSH_HARMONY_KEY_PASSWORD = saved.kp
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+check('the settings view exposes paths and booleans but never a password', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'harmony-sign-'))
+  const saved = process.env.DSH_HARMONY_CONFIG
+  try {
+    process.env.DSH_HARMONY_CONFIG = join(dir, 'config.json')
+    saveSignSettings({ keystorePath: 'C:/k.p12', keyAlias: 'debugKey', keystorePassword: 'top-secret', keyPassword: 'other-secret' })
+    const view = signView()
+    assert.equal(view.configured.hasKeystorePassword, true)
+    assert.equal(view.configured.hasKeyPassword, true)
+    assert.equal(view.configured.keyAlias, 'debugKey')
+    const text = JSON.stringify(view)
+    assert.ok(!text.includes('top-secret') && !text.includes('other-secret'), 'view must not carry the password')
+
+    // An empty password box means "keep what is stored".
+    saveSignSettings({ keystorePassword: '', keyAlias: 'debugKey' })
+    assert.equal(signView().configured.hasKeystorePassword, true)
+
+    // Clearing is explicit.
+    saveSignSettings({ clearPassword: true })
+    assert.equal(signView().configured.hasKeystorePassword, false)
+
+    assert.equal(saveSignSettings({ keyAlias: '' }).ok, false)
+  } finally {
+    if (saved === undefined) delete process.env.DSH_HARMONY_CONFIG
+    else process.env.DSH_HARMONY_CONFIG = saved
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+check('signing picks the unsigned artifact and keeps material paths absolute', () => {
+  const haps = [
+    { path: 'D:/p/entry-default-signed.hap', modifiedMs: 300 },
+    { path: 'D:/p/entry-default-unsigned.hap', modifiedMs: 100 },
+  ]
+  assert.equal(pickSignInput({ haps }), 'D:/p/entry-default-unsigned.hap')
+  assert.equal(pickSignInput({ haps, explicit: 'D:/p/custom.hap' }), 'D:/p/custom.hap')
+  // No unsigned artifact at all: fall back to the newest of whatever exists.
+  assert.equal(pickSignInput({ haps: [{ path: 'D:/p/a.hap', modifiedMs: 1 }, { path: 'D:/p/b.hap', modifiedMs: 9 }] }), 'D:/p/b.hap')
+  // verify reads the signed half; before this it asked verify-app about the
+  // unsigned file and reported "signature not found", which reads like a bug.
+  assert.equal(pickSignInput({ haps, prefer: 'signed' }), 'D:/p/entry-default-signed.hap')
+
+  const material = { storeFile: 'signature/a.p12', certpath: 'C:/abs/b.cer', profile: 'signature/c.p7b' }
+  const paths = absoluteMaterials(material, 'D:/proj')
+  assert.equal(paths.keystorePath, join('D:/proj', 'signature/a.p12'))
+  assert.equal(paths.certPath, 'C:/abs/b.cer')
+  assert.equal(paths.profilePath, join('D:/proj', 'signature/c.p7b'))
+})
+
+check('sign op refuses to build a command line without a password', () => {
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  // The refusal has to happen before anything is spawned, and it must tell the
+  // model where the human goes — never ask for the secret in the chat.
+  assert.ok(source.includes("creds.keystorePassword"), 'the tool must consult the saved credential')
+  assert.ok(source.includes("stage: 'credentials'"), 'missing credentials need their own stage')
+  assert.ok(source.includes('打开 DSH 设置'), 'the message must point at the settings card')
+  assert.ok(source.includes('不进对话'), 'and say the password never enters the conversation')
+  assert.ok(!/prompt|询问用户密码/.test(source), 'never ask the model to collect a password')
 })
 
 const failed = results.filter((result) => !result.ok)

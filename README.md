@@ -88,7 +88,7 @@ dsh plugin --profile desktop add file:<本目录>
 | `screenshot` | 抓设备截图到本地，返回路径与分辨率 |
 | `app` | `op=start/stop/clear/uninstall` 启停、清数据、卸载；`op=query` 查装没装、什么版本（只读） |
 | `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm；`fix: true` 时顺手修三类验得出的问题 |
-| `sign` | 构建前核对签名材料、证书有效期、products 引用 |
+| `sign` | 核对签名材料与证书有效期；`op=sign` 真签一份 HAP，`op=verify` 验签 |
 | `ui` | `dump` 读控件树；`find` 只查不点；`wait` 等文字出现/消失；`assert` 断言界面（文字、个数、指纹），`device=all` 逐台跑出一张表；`tap`/`input`/`key`/`swipe` 操作 |
 | `file` | `op=pull` 拉回设备文件、`op=send` 推到设备 |
 | `crash` | 读最新 jscrash / cppcrash / appfreeze，解出进程、原因、栈顶帧 |
@@ -101,6 +101,15 @@ matrix: "009180680c438f8f=install;03516892320539=run"
 ```
 
 `run` 只编译一次；结果是一张「设备 × 动作 × 结果」的表，没启动的行写 `—` 而不是 `0`。写法错（动作拼错、同一台写两次、id 不在线）在编译**之前**返回。
+
+## 签名：填一次，之后 `sign op=sign`
+
+自动构建默认出的是 unsigned HAP，真机装不上。要真签：
+
+1. DSH 设置页 →「HarmonyOS 签名」，填 keystore（p12）、keyAlias、证书、profile 和密码，点保存。
+2. 对话里说「签一下」或直接 `sign op=sign`——用工程 `build-profile.json5` 里的配置签名，签完自动 `verify-app`。
+
+密码只写在本机配置文件里，页面只显示「已保存」，不回显示、不写进对话、也不出现在工具的返回里（命令行参数按 `***` 掩码）。想临时覆盖可以用环境变量 `DSH_HARMONY_KEYSTORE_PASSWORD` / `DSH_HARMONY_KEY_PASSWORD`。
 
 ## 看日志与查文档
 
@@ -121,7 +130,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 - 只支持 Windows（启用 `tool-pwsh`、关闭 `tool-bash`）。
 - 工程目录必须可写：hvigor 要写 `<project>/.hvigor` 与 `build/`。
-- 未配置签名只会产出 unsigned，真机装不上；本工具只核对签名，不做签名（`hap-sign-tool` 需要明文密码，交给你决定放哪）。
+- 未配置签名只会产出 unsigned，真机装不上。要真签就在 DSH 设置页的「HarmonyOS 签名」里填一次密码（只存本机、不回显示、不进对话），然后 `sign op=sign`；也可用环境变量临时给。
 - `run` 的「日志为空」是正常结果，不等于「没有崩溃」。
 - 同一工程同时只允许本工具发一个构建（第二个会被锁挡回）；DevEco Studio 自己的构建只能靠 `EBUSY` 发现。
 
@@ -141,6 +150,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 | 0.24.0 | 同一工程同时只跑一个构建 |
 | 0.23.0 | `ui op=wait` 等文字出现或消失 |
 | 0.22.0 | `sign` 核对签名配置与证书有效期 |
+| 0.32.0 | `sign op=sign/verify` 真签名 + 设置页填密码（只存本机） |
 | 0.21.1 | 设备徽标标出「上次使用」并可切换 |
 | 0.21.0 | `doctor` 每项探测限时，超时与「没来得及跑」分开报 |
 | 0.20.0 | 离线文档：`docs` 的 config / search / read / api |

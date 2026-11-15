@@ -1,3 +1,17 @@
+## 0.32.0 — 签名可以真签了
+
+`sign` 原来只会读 `build-profile.json5` 报告材料齐不齐，现在多了两个动作：
+
+| 用法 | 做什么 |
+| --- | --- |
+| `sign` | 报告材料、证书有效期、products 引用（只读，plan 模式可用） |
+| `sign op=sign` | 用 `hap-sign-tool sign-app` 真签一份 HAP，签完自动跑 `verify-app` |
+| `sign op=verify` | 只验签，用 `-signed.hap` 而不是未签名的那份 |
+
+密码在 DSH 设置页的「HarmonyOS 签名」里填一次，只存本机配置文件、不回显示、不进对话；也可用环境变量 `DSH_HARMONY_KEYSTORE_PASSWORD` / `DSH_HARMONY_KEY_PASSWORD` 临时覆盖。
+
+已知限制：这版 `hap-sign-tool` 的 `sign-app` 不接受 `-pwdInputMode`（报 11011005），密码只能走命令行参数——和 DevEco 自己的做法一样；我们对所有返回行与命令行输出做了掩码。
+
 ## 0.31.2 — 2026-11-15
 
 **修：给 `deploy` / `run` 传 `D:/...` 形式的路径会装不上。** `hdc` 把带盘符的正斜杠路径当成相对路径，报 `no such file` 时还把拼接后的绝对路径写在同一行，容易被读成「文件真的不存在」。现在带盘符的路径统一换成反斜杠再交给 `hdc`；`D:/x/y.hap` 与 `D:\\x\\y.hap` 行为一致。

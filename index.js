@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { createLogRoutes } from './lib/hilog.js'
+import { createSignRoutes } from './lib/signroutes.js'
 import { harmonyPreset } from './lib/preset.js'
 import { createHarmonyTools } from './lib/tools.js'
 
@@ -229,5 +230,6 @@ export function apply(ctx) {
   // so the optional injection keeps this bundle usable in those compositions.
   ctx.inject(['connection'], (webCtx) => {
     for (const route of createLogRoutes()) webCtx.connection.fetch.register(route)
+    for (const route of createSignRoutes()) webCtx.connection.fetch.register(route)
   })
 }

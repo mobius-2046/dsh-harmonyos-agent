@@ -171,3 +171,11 @@ const.product.model / const.product.software.version / const.ohos.apiversion
 为什么用「自己的锁文件」而不是探测 `build-logs/build.log`：那个句柄由 hvigor 持有，Windows 上多数情况下仍允许再打开，探测会给出「没被占用」的假阴性；而两个本工具构建互相踩是确定会发生的（agent 同时发 `build` 与 `run`），先把这个堵住。
 
 管不了 DevEco Studio：它没有锁协议可用，只能靠 EBUSY 事后识别——一次自动重试 + 一句「关掉 DevEco 里的构建」。锁也不跨机器，设备/工程在共享盘上时同样只在本机生效。
+
+## 签名：为什么密码只能走命令行
+
+- `hap-sign-tool` 的 `-pwdInputMode` 只列在 `generate-*` 命令里；`sign-app` 传它会报 `ERROR: 11011005 Param is not trusted`，连密码错都走不到。所以密码只能放在 `-keystorePwd/-keyPwd` 上，和 DevEco 自己驱动这个 jar 的方式一致。
+- 暴露面是「本机进程列表，持续一次签名的时间」。我们能控制的是它不进任何输出：`signApp()` 返回的 `commandLine`、每一行日志都先过 `***` 掩码，`data` 里也没有密码字段。
+- `verify-app` 必须同时给 `-outCertChain` 与 `-outProfile`，所以这两个临时文件写到 `%TEMP%` 后立刻删。
+- 验签要用 `-signed.hap`，签名要用 `-unsigned.hap`：一开始两者共用 `pickSignInput()`，结果 `op=verify` 拿未签名的文件去验，报「signature not found」，看起来像工具坏了。
+- 设置页的密码框是「只写」的：Host 的 `GET /api/harmony/sign` 只返回 `hasKeystorePassword/hasKeyPassword` 两个布尔值和路径。空密码框提交表示「保持原值」，清除密码是另一个显式动作——否则每次保存都会把密码冲掉。

@@ -30,7 +30,9 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 
 1. `settings.section` 里加一张 **HarmonyOS 签名** 设置卡：keystore 路径、keyAlias、keystore 密码、key 密码、profile/cert 路径；密码输入框 `type=password`，只显示「已保存 / 未保存」，**不回填、不回传**。卡片顶部一句固定提示：「密码只保存在本机 `~/.dsh/dsh-harmony.json`，不会上传到任何云端，也不会出现在对话里。」
 2. Host 侧新增只写不读的路由 `POST /api/harmony/sign`（保存）与 `GET /api/harmony/sign`（只返回 `{ hasKeystorePassword, hasKeyPassword, keystorePath, keyAlias }`，永不返回密码原文）；文件写入沿用 `settings.js` 的临时文件 + rename，Windows 上再把 ACL 收紧到仅当前用户。
-3. `sign` 动作加 `op=sign`：用保存的密码调 `hap-sign-tool sign-app`（密码经环境变量传给子进程，不进命令行参数，避免出现在进程列表里）；没有密码时如实说「还没配置密码，去设置页填一次」，绝不提示模型去问用户密码。
+3. `sign` 动作加 `op=sign`：用保存的密码调 `hap-sign-tool sign-app`；没有密码时如实说「还没配置密码，去设置页填一次」，绝不提示模型去问用户密码。
+   - 2026-11-15 已交付 `op=sign` / `op=verify` + 设置页「HarmonyOS 签名」卡（密码只写不读、只存本机）。
+   - 订正原计划：这个 `hap-sign-tool` 的 `sign-app` 不接受 `-pwdInputMode`（11011005），密码**只能**走命令行参数（DevEco 同样如此）；因此密码来源仍是设置页/环境变量，但传输只能 argv，我们对所有返回行与命令做 `***` 掩码。**成功路径还需要真实密码跑一次**（你填设置卡后我可以验）。
 
 验收：设置页填一次 → `sign op=sign` 用真实 keystore 签出一个 APK/HAP 并被 `hap-sign-tool verify-app` 认；对话记录、日志、`data` 里都不出现密码；删掉配置文件后 `sign` 回到「未配置」而不是报错。
 
