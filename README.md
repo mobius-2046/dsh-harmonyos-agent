@@ -1,201 +1,155 @@
 # dsh-harmony
 
-让 DeepSeek Harness 变成一个会写鸿蒙应用的 agent：**plan 先想清楚，goal 盯到底，build 落到真机**。
+[![version](https://img.shields.io/github/v/release/mobius-2046/dsh-harmonyos-agent?label=version)](https://github.com/mobius-2046/dsh-harmonyos-agent/releases)
+[![license](https://img.shields.io/github/license/mobius-2046/dsh-harmonyos-agent)](LICENSE)
+[![platform](https://img.shields.io/badge/platform-Windows-0078D6)](#边界)
+[![actions](https://img.shields.io/badge/harmony%20actions-15-2f6fed)](#十五个动作)
+
+把「改 ArkTS → 等编译 → 装真机 → 翻 hilog → 再改」这条循环，变成一句话交代：agent 自己跑完，并把证据（编译结论、安装结果、启动画面、日志）摆回你面前。
 
 <p align="center">
-  <img src="docs/hilog-panel.png" width="900" alt="hilog 日志面板：设备切换、级别筛选、实时跟随">
+  <img src="docs/hilog-panel.png" width="900" alt="hilog 日志面板：设备切换、级别筛选、实时跟随、快照对比">
 </p>
 
-## 它能做什么
+## 这东西给谁用
 
-- 你说「给这个工程加一个设置页」，它读工程结构、改 ArkTS、跑 hvigor、装到真机、拉日志确认；编译报错时先读第一条错误再改，而不是盲改。
-- `/plan` 让它先只读调研、出方案，你批准后才动手。
-- `/goal 让设置页在真机上打开并截图` 给它一个跨轮目标，它自己一轮轮推进，输入区上方的 GoalBar 显示进度。
-- 侧边栏的 **hilog** 面板按 DevEco Studio 的 HiLog 窗口做：选设备、按进程 / 级别 / 关键字过滤，实时跟随，可暂停、保存。
+写给正在做鸿蒙应用、并且**已经在用 DevEco Studio 把工程跑起来**的人：
 
-## 它提供什么
+- 工程在本地，`hvigorw`、`hdc`、签名配置都能用；真机或模拟器插着。
+- 每天的动作是重复的：改几行 ArkTS、等两分钟编译、装到手机、点开、看 hilog 里那条报错。
+- 你想用自然语言把这串动作交代出去，而不是亲手点十六下；出错时希望它先读第一条错误再改，而不是盲改。
 
-| 部件 | 内容 |
-|---|---|
-| 预设 `harmony` | 与 `standard` 同源的编码工具面（26 个组件），人格换成鸿蒙专家，内置 plan / goal / build 三模式所需件；运行时注册，不占用官方预设位 |
-| 命令 | `/build`（plan 停在半路时直接开工）、`/mode`（看当前 plan / goal 状态）、`/goal`（要求写清完成判据与验证方式）；`/plan` 是宿主内置 |
-| 技能 | `harmony-project`、`harmony-arkts`、`harmony-build-deploy`、`harmony-ohpm` |
-| 工具 | 一个 `harmony`，十五个动作：`build` / `compile` / `deps` / `run` / `devices` / `deploy` / `logs` / `screenshot` / `app` / `doctor` / `sign` / `ui` / `file` / `crash` / `docs` |
-| 日志面板 | 侧边栏 **hilog** 图标 → 全屏日志页 |
-| 设备徽标 | 侧边栏左下角的小手机图标：绿色胶囊=在线台数；点开是每台的机型、序列号、API、电量、温度、内存与存储占用 |
+不是给这些场景的：只想点预览器看效果、不做真机调试的人；没有 `hdc` 设备的人；期待它替代 DevEco 的断点调试、内存分析、UI 预览器的人——那些我没做，也不假装能做。
 
-三个模式不是三个 agent，而是同一个会话的三种状态：
+## 你现在这样干，装上之后
 
-| 模式 | 进入方式 | 行为 |
+| 现在 | 装上之后 | 省掉什么 |
 |---|---|---|
-| plan | `/plan` | 只读调研，产出方案，`exit_plan_mode` 提交审批 |
-| goal | `/goal <目标>；完成判据：<可观察结果>；验证方式：<命令>` | 持久目标 + 自动续跑；缺判据或验证方式会被拒绝 |
-| build | 关闭 plan 后的默认状态 | 直接改文件并构建验证 |
+| 改完代码，切到 DevEco，点构建，等进度条 | 一句「改完跑一下真机」，agent `compile` 先做类型检查、再 `run` 构建装机 | 切窗口、盯进度条 |
+| 装完手动点开应用，看有没有崩 | `run` 一次做完：装包、补 HSP、拉起、抓 6 秒日志 | 三次点击 + 一次等待 |
+| 日志窗口里按进程名筛，滚很久找那条 FATAL | `logs` 给包名就只留这个进程的行；`crash` 直接读最新崩溃日志并解出栈顶帧 | 手筛、翻文件 |
+| 报错看不懂：`9568305`、`EBUSY`、签名不过 | 错误码表给处置建议，失败后一行「接下来做什么」 | 搜论坛、反复试 |
+| 改完不确定界面对不对 | `screenshot` 截图、`ui op=assert` 断言文字/个数/指纹 | 肉眼比对 |
+| 想确认某接口从哪个版本开始有 | `docs op=api` 查本地 SDK 的 `@since` | 翻官网、等加载 |
 
-## 开发思路
+## 一分钟上手
 
-**复用宿主，不重造 agent。** plan 与 goal 是宿主自带的 `planMode`、`goals` 服务，本包只补人格、命令出口和领域技能；三个模式共享一个会话上下文，切换不丢历史。
-
-**工具面越小越好。** 只注册一个 `harmony`，用 `action` 选动作。每个工具的 schema 每轮都要重发，四个工具加上同时并存的 DevEco CLI 工具曾把工具表撑到 87 个、近一成上下文；合并成一个是最直接的优化。
-
-**一次调用走完闭环。** `run` = 构建 → 装 entry →（HSP 工程）补装依赖 → 拉起 Ability → 抓 6 秒日志，返回五段结论。这四步如果让模型自己串，平均多花 3–4 轮。
-
-**预设运行时注册。** Loader 行只能按 profile 的 `node_modules` 解析包名，而 profile 缺 73 个 `@deepseek-ai/*` 依赖；本包改用 `agentPresets.register()`，让子插件按宿主自带的 app.asar 解析。原因和失败现场见 [docs/design-notes.md](docs/design-notes.md)。
-
-**面板走已有的登录通道。** 浏览器拿不到 `hdc`，所以 `client.js` 只画界面，采集在 Host 侧；三条 `/api/harmony/logs*` 路由挂在宿主的 `ctx.connection.fetch` 上（带浏览器令牌，不是公开端口），用 NDJSON 流推日志。
-
-## 如何安装
-
-前置：dsh `>=0.2.1-rc.5 <0.3.0-0`、Windows + PowerShell、DevEco Studio 6.x（提供 `hvigorw` / `hdc`）。真机调试需要设备已连上 `hdc`。
-
-插件页点「安装」选本目录，或在 `plugin_manager` 里：
-
-```
-install_bundle  target: <本目录的绝对路径>
-```
+前置：Windows、dsh `>=0.2.1-rc.5`、DevEco Studio 6.x（提供 `hvigorw` 和 `hdc`）、设备已连上 `hdc list targets`。
 
 ```powershell
-# 或用 CLI
+# 1. 安装（插件页选目录，或命令行）
 dsh plugin --profile desktop add file:<本目录>
-```
 
-装完新建会话，在预设选择器里选 **HarmonyOS**。
+# 2. 重启一次 Harness（浏览器半边与日志面板要重新加载）
+
+# 3. 新建会话，预设选择器里选 HarmonyOS
+```
 
 ![预设选择器里的 HarmonyOS 卡片](docs/preset-card.png)
 
-第一次安装（或升级到带新 `client.js`、新 Host 路由的版本）后需要**重启一次 Harness**，浏览器半边和日志面板才会加载。
-
-## 如何使用
-
-**1. 先规划，再动手**
+然后第一句话可以是：
 
 ```
 /plan 给这个工程加一个设置页，带深色模式开关
 ```
 
-它只读探索、给出方案与验证命令，你批准（或输入 `/build`）后进入 build。
+它只读调研、给方案和验证命令；你批准（或 `/build`）后进 build，改完代码自己构建、装机、拉日志。
 
-**2. 给一个能验收的目标**
+## 它提供什么
 
-```
-/goal 让设置页在真机上能打开并截图；完成判据：真机截图里能看到开关；验证方式：harmony run 后 hilog 无 FATAL
-```
+| 部件 | 内容 |
+|---|---|
+| 预设 `harmony` | 与官方 `standard` 同源的编码工具面，人格换成鸿蒙专家；运行时注册，不占用官方预设位 |
+| 命令 | `/build`（plan 停在半路时直接开工）、`/mode`（看当前 plan / goal 状态）、`/goal`（要求写清完成判据与验证方式）；`/plan` 是宿主内置 |
+| 技能 | `harmony-project`、`harmony-arkts`、`harmony-build-deploy`、`harmony-ohpm` |
+| 工具 | 一个 `harmony`，十五个动作，见下表 |
+| 日志面板 | 侧边栏 **hilog** 图标 → 全屏日志页：设备切换、级别/进程/关键字过滤、实时跟随、快照与对比 |
+| 设备徽标 | 侧边栏左下角的小手机图标：绿色胶囊=在线台数；点开看每台的机型、序列号、API、电量、温度、内存与存储 |
 
-GoalBar 显示状态；目标达成或明确失败时它会停下来。
+三个模式不是三个 agent，而是同一个会话的三种状态：
 
-![GoalBar：输入区上方的目标状态条](docs/goal-bar.png)
+| 模式 | 进入方式 | 行为 |
+|---|---|---|
+| plan | `/plan` | 只读调研，产出方案，`exit_plan_mode` 提交审批；工具层面拒绝构建/装机 |
+| goal | `/goal <目标>；完成判据：<可观察结果>；验证方式：<命令>` | 持久目标 + 自动续跑；缺判据或验证方式会被拒绝，避免「一轮轮继续」 |
+| build | 关闭 plan 后的默认状态 | 直接改文件并构建验证 |
 
-**3. 构建与真机验证**
+## 十五个动作
 
 | action | 做的事 |
 |---|---|
 | `build` | `hvigorw assembleHap`（`hsp: true` 时再跑 `assembleHsp`），返回产物、是否已签名、结构化错误 |
-| `run` | build → 装包 →（HSP）补依赖 → `aa start` → 抓日志，五段结论；`matrix` 可按设备分工（A 机跑、B 机只装、C 机跑完卸载）；plan 模式下拒绝执行 |
-| `devices` | 列出 `hdc` 设备 |
+| `compile` | 只做 ArkTS 类型检查，约是完整构建的一半时间 |
+| `deps` | `ohpm install --all`：改了 `oh-package.json5` 之后同步依赖 |
+| `run` | build → 装包 →（HSP）补依赖 → `aa start` → 抓日志，五段结论；`matrix` 可按设备分工；plan 模式下拒绝 |
+| `devices` | 列出设备与机型、API、电量、温度、内存、存储 |
 | `deploy` | 装指定 `.hap`，可选拉起；支持多设备 |
-| `logs` | 限时抓取 `hdc shell hilog`；给 `bundleName` 就解析 pid 只留这个应用的日志；支持多设备合并；`filter` 用子串或 `/regex/flags` |
-| `screenshot` | 抓一张设备截图存到本地临时目录，返回文件路径与分辨率 |
-| `app` | `op=start/stop/clear/uninstall` 启停应用、清数据、卸载；`op=query` 查装没装、什么版本（只读） |
-| `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm，坏在哪一项直接说；`fix: true` 时才顺手修验得出的三类（残留构建锁、缺 pnpm wrapper、缺 HSP 产物） |
-| `sign` | 构建前核对签名配置：材料文件在不在、证书什么时候过期、products 引用对不对 |
-| `ui` | `op=dump` 读界面控件树；`find` 只查不点；`wait` 等文字出现或消失；`assert` 断言界面符合预期（文字、个数或界面指纹），`device=all` 时同一期望逐台跑、出一张表；`tap` 按文字点、`input` 输入、`key` 按键、`swipe` 滑动 |
-| `file` | `op=pull` 把设备文件拉回本机、`op=send` 把本机文件推到设备 |
-| `crash` | 读设备上最新的崩溃日志（jscrash / cppcrash / appfreeze），可按包名筛选，提取进程、原因与栈顶帧 |
-| `deps` | `ohpm install --all`：改了 oh-package.json5 之后同步依赖，registry 或本地 .har 的问题当场说清 |
-| `docs` | 离线文档：`op=config` 配目录、`op=search` 查关键词、`op=read` 读命中原文、`op=api` 问某个接口从哪个 API 版本开始有 |
+| `logs` | 限时抓 `hilog`；给 `bundleName` 就按 pid 只留这个应用；`filter` 用子串或 `/regex/flags` |
+| `screenshot` | 抓设备截图到本地，返回路径与分辨率 |
+| `app` | `op=start/stop/clear/uninstall` 启停、清数据、卸载；`op=query` 查装没装、什么版本（只读） |
+| `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm；`fix: true` 时顺手修三类验得出的问题 |
+| `sign` | 构建前核对签名材料、证书有效期、products 引用 |
+| `ui` | `dump` 读控件树；`find` 只查不点；`wait` 等文字出现/消失；`assert` 断言界面（文字、个数、指纹），`device=all` 逐台跑出一张表；`tap`/`input`/`key`/`swipe` 操作 |
+| `file` | `op=pull` 拉回设备文件、`op=send` 推到设备 |
+| `crash` | 读最新 jscrash / cppcrash / appfreeze，解出进程、原因、栈顶帧 |
+| `docs` | 离线文档：`config` 配目录、`search` 查关键词、`read` 读原文、`api` 查接口的 `@since` |
 
-**4. 看真机日志**
-
-点侧边栏 **hilog**：选设备 → 先灌入最近 120 行 → 实时追加。按级别（默认关掉 Debug）、进程、关键字过滤都在浏览器里完成，不重连。
-
-复现问题前点 **快照** 存一份基准，修完再存一份，点 **对比** 选两份快照：按行出现次数报「新增 / 消失 / 相同」，一眼看出那条报错是否真的不再出现。对比面板里还有快照列表：可以 **改名**（回车保存）、**导出** 成 `.log` 文件发给别人、或单独 **删除**；名字与内容都存在浏览器本地，重启后还在。
-
-**5. 多台设备一起**
-
-`deploy`、`run`、`logs` 的 `device` 传 `all` 走所有已连接设备，或传 `a,b` 指定几台。`run` 只编译一次，安装与启动按设备并行；一台失败不影响其余，结论按设备分块列出。
-
-如果每台设备要做的事不一样，用 `matrix` 代替 `device`：
+多台设备有两种写法：`device="all"` 或 `device="a,b"` 设备列表；每台要做不同的事就用 `matrix`：
 
 ```
-matrix: "009180680c438f8f=run;03516892320539=install"
+matrix: "009180680c438f8f=install;03516892320539=run"
 ```
 
-三种动作：`run`（装、启动、抓日志，只写设备 id 时默认这个）、`install`（只装不启动，留给别人手动验）、`uninstall`（装、启动、抓日志，最后卸掉，把机器还原）。`run` 只编译一次，结果是一张「设备 × 动作 × 结果」的表，没启动的行用 `—` 而不是 `0`。
+`run` 只编译一次；结果是一张「设备 × 动作 × 结果」的表，没启动的行写 `—` 而不是 `0`。写法错（动作拼错、同一台写两次、id 不在线）在编译**之前**返回。
 
-写法错（动作拼错、同一台写两次、id 不在线）在**编译之前**就返回，不会先花 90 秒构建再告诉你打错了。
+## 看日志与查文档
 
-**6. 看一眼界面、关掉应用**
+点侧边栏 **hilog**：选设备 → 灌入最近 120 行 → 实时追加。按级别、进程、关键字过滤都在浏览器里完成，不重连。
 
-`screenshot` 把当前画面存成 JPEG 并返回路径（可以多台一起抓），比让模型猜 UI 靠得住；`app` 用 `op=stop` 强停、`op=clear` 清数据、`op=uninstall` 卸载，验证「冷启动是否还会崩」时不用手点设备。
+复现问题前点 **快照** 存基准，修完再存一份，点 **对比**：按行出现次数报「新增 / 消失 / 相同」。快照可以改名、导出 `.log`、单条删除，名字与内容存在浏览器本地。
 
-需要读写设备上的文件时用 `file`：`op=pull` 默认落到临时目录并返回字节数，`op=send` 需要显式 `local`；设备路径一律写绝对路径（`/data/local/tmp/…`）。
-
-要操作界面就再加一步 `ui`：`op=dump` 把控件树拍平成「类型 + 文字 + 是否可点 + 坐标」，`op=find` 只查不点（返回匹配控件的坐标，适合先确认再动手），`op=tap` 直接按文字点击（`text: "登录"`），`op=input` 往焦点或指定坐标输入，`op=key` 发 Back/Home，`op=swipe` 翻列表。截图负责「看见」，`ui` 负责「点到」，两者合起来才是完整的界面回归。
-
-**7. 构建失败前先体检**
-
-感觉「环境不对」时先跑 `doctor`，它把 hdc、设备、SDK、hvigorw、签名、shared 模块产物、ohpm 逐项标成 ✓ / ! / ✗ / ⏱（超时）/ …（没来得及跑），并说明每一项各自的处置；比从一条 hvigor 报错往回猜快。外部探测每项限时 2 秒、整轮 8 秒预算，所以它会回来——包括环境本身出问题的时候。加 `fix: true` 会让它顺手修掉三类验得出的问题（残留构建锁、缺 pnpm wrapper、shared 模块缺 HSP），修了什么单独列在「已修：」里。
-
-**8. 查不到就查文档（可离线）**
-
-先配一次，之后一直有效：
+查接口先配一次文档目录（离线，不联网）：
 
 ```text
 harmony  action=docs  op=config  dir=D:\docs-openharmony-6.1-release\zh-cn\application-dev
 harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 ```
 
-配置写进 `~/.dsh/dsh-harmony.json`；也可以完全用环境变量 `DSH_HARMONY_DOCS_DIRS`（多个目录用 `;` 分隔），适合把文档放在别处或临时换一套。
+之后 `docs op=search` / `op=read` / `op=api`。搜索有硬预算（4000 文件 / 64 MB / 10 秒），停下时说清扫了多少、为什么停——「没扫完」不会说成「没有」。
 
-之后：
+## 边界
 
-- `action=docs op=search query=notificationManager` → 文件、行号、所在标题、上下文，每文件最多两条。
-- `action=docs op=read file=<上面的文件> line=<行号>` → 读那一段原文。
-- `action=docs op=api symbol=notificationManager` → `@since 12`，以及声明所在文件与行。
-
-搜索有硬预算（4000 文件 / 64 MB / 10 秒），停下时会说清扫了多少、为什么停——「没扫完」不会被说成「没有」。
-
-**边界**：只支持 Windows（`tool-pwsh` 启用、`tool-bash` 关闭）；工程目录必须可写（hvigor 要写 `<project>/.hvigor` 和 `build/`）；未配置签名只会产出 unsigned，真机装不上；`run` 的「日志为空」是正常结果，不等于「没有崩溃」；同一工程同时只允许本工具发一个构建（第二个会被锁挡回），但 DevEco Studio 自己的构建只能靠 EBUSY 发现。
+- 只支持 Windows（启用 `tool-pwsh`、关闭 `tool-bash`）。
+- 工程目录必须可写：hvigor 要写 `<project>/.hvigor` 与 `build/`。
+- 未配置签名只会产出 unsigned，真机装不上；本工具只核对签名，不做签名（`hap-sign-tool` 需要明文密码，交给你决定放哪）。
+- `run` 的「日志为空」是正常结果，不等于「没有崩溃」。
+- 同一工程同时只允许本工具发一个构建（第二个会被锁挡回）；DevEco Studio 自己的构建只能靠 `EBUSY` 发现。
 
 ## 发版记录
 
 | 版本 | 主要变化 |
 |---|---|
-| 0.31.1 | 修：两台设备的 `matrix` 被误判成「设备没连接」——校验改为用全部已连接设备 |
-| 0.31.0 | `ui op=assert` 支持 `device=all`：同一期望逐台跑，结果为「N/M 台符合预期」+ 每台一行，失败行点名哪条期望、实际多少 |
-| 0.30.0 | `run` 支持 `matrix`：一条调用里按设备分工（跑 / 只装 / 跑完卸载），结果是一张设备 × 动作的表；写法错在编译前返回 |
-| 0.28.0 | 快照可改名、导出 `.log`、单条删除；名字存本地，旧快照不受影响 |
-| 0.29.0 | `app op=query`：查设备上装没装、版本号、分发类型、更新时间（只读，多设备可一次问遍） |
-| 0.27.0 | `ui op=assert` 断言界面：文字、个数、界面指纹；`dump` 顺带返回指纹 |
-| 0.26.0 | `doctor fix: true` 会修掉三类验得出的问题：残留构建锁、缺 pnpm wrapper、shared 模块缺 HSP |
-| 0.25.0 | `run` 失败时按首错归类，末尾给一行「接下来做什么」 |
-| 0.24.0 | 同一工程同时只跑一个构建（`.hvigor` 里抢锁），第二个直接说被谁占着，不白跑五分钟 |
-| 0.23.0 | `ui op=wait` 等文字出现或消失，替代「点完再 dump 一次」的额外轮次 |
-| 0.22.0 | `sign` 在构建前核对签名配置、三个材料文件与证书有效期 |
-| 0.21.1 | 设备徽标标出「上次使用」并可点击切换默认设备；关闭时轮询降为 60 秒 |
-| 0.21.0 | `doctor` 每项探测限时 2 秒、整轮 8 秒预算，超时与「没来得及跑」分开报 |
-| 0.20.0 | 离线文档可配置：`docs` 的 config / search / read / api（`@since` 版本查询），搜索有预算并如实报告 |
-| 0.19.0 | 错误码给出处置建议（同码不同义分开判）、记住上次使用的设备、`ui op=find` 只查不点 |
-| 0.18.0 | 设备徽标修好样式（此前只在日志面板里挂载 CSS），并展示机型、电量、温度、内存、存储 |
-| 0.17.0 | 左下角设备徽标：在线状态、台数、点开看序列号（不必打开面板或跑 `devices`） |
-| 0.16.0 | `logs` 按 pid 收敛：给包名就只看这个应用的行（栈帧跟着上一条记录保留） |
-| 0.15.0 | `deps`：`ohpm install --all`，把依赖问题从「构建时报找不到模块」提前到安装时 |
-| 0.12.0 | `compile`：只做 ArkTS 类型检查，约是完整构建的一半时间 |
-| 0.11.0 | `file`：在设备和本机之间收发文件，plan 下只允许 pull |
-| 0.10.x | `ui`：读控件树、按文字点击、输入、按键、滑动；`logs` 支持关键字与正则过滤 |
-| 0.9.0 | `doctor`：一次检查工程、hdc、设备、SDK、hvigorw、签名、shared 产物、ohpm |
-| 0.8.0 | `screenshot` 抓真机屏幕；`app` 启停/清数据/卸载 |
-| 0.7.0 | 多设备并行（`device=all` / 列表）；plan 模式下工具拒绝构建安装；HSP 依赖按层安装；hilog 快照与对比 |
-| 0.6.5 | 修好预设挂载（`agentPresets` 必须进 `export const inject`）、`/build` `/mode` 中文化、补文档与截图 |
-| 0.6.1 | 预设改为运行时注册，不再覆盖 `preset-minimal`；三模式补显式入口 |
-| 0.5.0 | 四工具合并为 `harmony`；新增端到端 `run`；HSP 工程可装；签名状态可见 |
-| 0.4.1 | 补齐 plan-mode 的 `section`，删掉不存在的 `list-agents` 子路径 |
-| 0.4.0 | 预设改为覆盖官方行（0.6.1 起被运行时注册取代） |
-| 0.3.x | 沙箱内可构建（`HVIGOR_USER_HOME` 隔离）、hilog 面板、修 HTTP 500 |
+| 0.31.1 | 修：两台设备的 `matrix` 被误判成「设备没连接」 |
+| 0.31.0 | `ui op=assert` 支持 `device=all`，结果为「N/M 台符合预期」+ 每台一行 |
+| 0.30.0 | `run` 支持 `matrix`：一条调用里按设备分工，结果是一张表 |
+| 0.29.0 | `app op=query` 查安装状态与版本 |
+| 0.28.0 | 快照可改名、导出 `.log`、单条删除 |
+| 0.27.0 | `ui op=assert` 断言界面：文字、个数、指纹 |
+| 0.26.0 | `doctor fix: true` 修残留构建锁、缺 pnpm wrapper、缺 HSP 产物 |
+| 0.25.0 | `run` 失败按首错归类，给「接下来做什么」 |
+| 0.24.0 | 同一工程同时只跑一个构建 |
+| 0.23.0 | `ui op=wait` 等文字出现或消失 |
+| 0.22.0 | `sign` 核对签名配置与证书有效期 |
+| 0.21.1 | 设备徽标标出「上次使用」并可切换 |
+| 0.21.0 | `doctor` 每项探测限时，超时与「没来得及跑」分开报 |
+| 0.20.0 | 离线文档：`docs` 的 config / search / read / api |
+| 0.19.0 | 错误码处置建议、记住上次设备、`ui op=find` |
+| 0.7.0–0.18.0 | 多设备、plan 守卫、HSP 分层安装、快照对比、截图、`app`、`doctor`、`ui`、`logs` 过滤、`file`、`compile`、`crash`、`/goal`、`deps`、日志按 pid |
 
-每个版本的动机和细节见 [CHANGELOG.md](CHANGELOG.md)，发布包见 [Releases](https://github.com/mobius-2046/dsh-harmonyos-agent/releases)。
+完整动机与细节见 [CHANGELOG.md](CHANGELOG.md)，安装包见 [Releases](https://github.com/mobius-2046/dsh-harmonyos-agent/releases)。
 
 ## 更多
 
-- [docs/design-notes.md](docs/design-notes.md)：给维护者——9 个踩过的坑、改代码何时要重启、工具 schema 陷阱。
+- [docs/design-notes.md](docs/design-notes.md)：给维护者——踩过的坑、改代码何时要重启、工具 schema 陷阱、为什么预设是运行时注册的。
+- [docs/roadmap.md](docs/roadmap.md)：接下来做什么、以及不做什么。
 - [LICENSE](LICENSE)：MIT。

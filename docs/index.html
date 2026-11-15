@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-harmony — 鸿蒙应用开发 agent</title>
+<meta name="description" content="给 DeepSeek Harness 装上鸿蒙开发能力：一个 harmony 工具十五个动作，plan / goal / build 三模式，真机日志面板。">
+<style>
+  :root { --fg:#101114; --muted:#5b616e; --line:#e6e8ee; --bg:#ffffff; --card:#f7f8fa; --accent:#2f6fed; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#e8eaf0; --muted:#9aa2b1; --line:#262a33; --bg:#0e1014; --card:#151922; --accent:#7aa2ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font: 16px/1.65 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 56px 24px 96px; }
+  h1 { font-size: 2.2rem; margin: 0 0 8px; letter-spacing: -.02em; }
+  h2 { font-size: 1.2rem; margin: 48px 0 12px; }
+  p.lead { font-size: 1.08rem; color: var(--muted); margin: 0 0 32px; }
+  .badges { display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 24px; }
+  .badges img { height: 20px; }
+  img.shot { width: 100%; border: 1px solid var(--line); border-radius: 10px; }
+  code, pre { font-family: "Cascadia Code", Consolas, monospace; font-size: .92em; }
+  pre { background: var(--card); border:1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
+  code { background: var(--card); padding: 1px 5px; border-radius: 5px; }
+  pre code { background: none; padding: 0; }
+  table { width:100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align:left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 14px; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .card h3 { margin: 0 0 6px; font-size: .98rem; }
+  .card p { margin: 0; color: var(--muted); font-size: .92rem; }
+  footer { margin-top: 56px; color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>dsh-harmony</h1>
+  <p class="lead">让 DeepSeek Harness 会写鸿蒙应用：plan 先想清楚，goal 盯到底，build 落到真机。</p>
+  <div class="badges">
+    <img src="https://img.shields.io/github/v/release/mobius-2046/dsh-harmonyos-agent?label=version" alt="version">
+    <img src="https://img.shields.io/github/license/mobius-2046/dsh-harmonyos-agent" alt="license">
+    <img src="https://img.shields.io/badge/platform-Windows-0078D6" alt="platform">
+  </div>
+  <img class="shot" src="hilog-panel.png" alt="hilog 日志面板">
+
+  <h2>它解决的那条循环</h2>
+  <p>改 ArkTS → 等编译 → 装真机 → 翻 hilog → 再改。这句循环里的每一步，都可以收进一句交代：</p>
+  <pre><code>改完登录页的校验，跑一下真机，崩了把日志里第一条错误给我</code></pre>
+  <p>它会先 <code>compile</code> 做类型检查（约完整构建一半时间），再 <code>run</code> 构建、装包、补 HSP、拉起 Ability、抓六秒日志；崩了自动读最新 <code>jscrash</code> 并解出栈顶帧。</p>
+
+  <h2>三个模式</h2>
+  <div class="grid">
+    <div class="card"><h3>/plan</h3><p>只读调研、出方案；工具层拒绝构建与装机，批准后才动手。</p></div>
+    <div class="card"><h3>/goal</h3><p>跨轮目标 + 自动续跑；要求写清完成判据与验证方式，缺了会被拒绝。</p></div>
+    <div class="card"><h3>build</h3><p>默认状态：改文件、构建、装机、验证，一次走完。</p></div>
+  </div>
+
+  <h2>十五个动作</h2>
+  <table>
+    <tr><th>动作</th><th>用途</th></tr>
+    <tr><td><code>build</code> / <code>compile</code> / <code>deps</code></td><td>构建、只做类型检查、同步 ohpm 依赖</td></tr>
+    <tr><td><code>run</code></td><td>构建 → 装机 → 补 HSP → 启动 → 抓日志，五段结论；支持 <code>matrix</code> 按设备分工</td></tr>
+    <tr><td><code>devices</code> / <code>deploy</code> / <code>logs</code></td><td>设备列表（含电量温度）、装指定 HAP、抓日志并按 pid 收敛</td></tr>
+    <tr><td><code>screenshot</code> / <code>ui</code> / <code>app</code></td><td>截图、点按输入断言、启停清数据卸载</td></tr>
+    <tr><td><code>crash</code> / <code>file</code> / <code>docs</code></td><td>崩溃日志、设备文件收发、离线文档与 <code>@since</code> 查询</td></tr>
+    <tr><td><code>doctor</code> / <code>sign</code></td><td>环境体检（带预算与 fix）、签名材料与证书核对</td></tr>
+  </table>
+
+  <h2>安装</h2>
+  <p>前置：Windows、dsh <code>&gt;=0.2.1-rc.5</code>、DevEco Studio 6.x、设备能被 <code>hdc</code> 看到。</p>
+  <pre><code>dsh plugin --profile desktop add file:&lt;本目录&gt;</code></pre>
+  <p>重启一次 Harness，新建会话时选 <strong>HarmonyOS</strong> 预设。第一件事建议跑 <code>harmony action=doctor</code>。</p>
+
+  <h2>它不做什么</h2>
+  <p>不做预览器、断点调试、内存与性能分析——这些 DevEco 做得更好。也不做签名：<code>hap-sign-tool</code> 要明文密码，密码放哪由你决定。</p>
+
+  <footer>
+    <a href="https://github.com/mobius-2046/dsh-harmonyos-agent">仓库</a> ·
+    <a href="https://github.com/mobius-2046/dsh-harmonyos-agent/blob/main/README.md">README</a> ·
+    <a href="https://github.com/mobius-2046/dsh-harmonyos-agent/blob/main/CHANGELOG.md">更新日志</a> ·
+    MIT
+  </footer>
+</main>
+</body>
+</html>
