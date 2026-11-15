@@ -179,3 +179,9 @@ const.product.model / const.product.software.version / const.ohos.apiversion
 - `verify-app` 必须同时给 `-outCertChain` 与 `-outProfile`，所以这两个临时文件写到 `%TEMP%` 后立刻删。
 - 验签要用 `-signed.hap`，签名要用 `-unsigned.hap`：一开始两者共用 `pickSignInput()`，结果 `op=verify` 拿未签名的文件去验，报「signature not found」，看起来像工具坏了。
 - 设置页的密码框是「只写」的：Host 的 `GET /api/harmony/sign` 只返回 `hasKeystorePassword/hasKeyPassword` 两个布尔值和路径。空密码框提交表示「保持原值」，清除密码是另一个显式动作——否则每次保存都会把密码冲掉。
+
+## 缺 SDK 位置：为什么提示要指向文件
+
+`00303208` 的原文是「Unable to find 'sdk.dir' in 'local.properties' or 'OHOS_BASE_SDK_HOME'」——对一个刚 clone 下来的工程，这个文件还不存在，读的人只知道「缺了什么」不知道「放哪、写什么」。所以 `build` 现在直接给路径与整行内容，`doctor` 也单列一行。
+
+顺带纠正一个自己的错误：一开始我把 `DEVECO_SDK_HOME` 也当成兜底，但 hvigor 只认 `local.properties` 与 `OHOS_BASE_SDK_HOME`；把不生效的变量写进「兜底」比不写更糟。

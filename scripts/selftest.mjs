@@ -897,6 +897,19 @@ check('a matrix is checked against every device, not the default target', () => 
   )
 })
 
+check('a missing SDK location is explained in terms of the file to create', () => {
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  // hvigor stops on 00303208 within a second; the error names a file that does
+  // not exist yet, so the hint has to say what belongs in it.
+  assert.ok(source.includes('00303208'), 'build must recognise the SDK-location error')
+  assert.ok(source.includes("join(projectDir, 'local.properties')"), 'and name the file, not just the variable')
+  // Only OHOS_BASE_SDK_HOME satisfies hvigor; DEVECO_SDK_HOME does not, so the
+  // doctor row must not promise it as a fallback.
+  const doctor = source.slice(source.indexOf("row('local.properties'"), source.indexOf("row('hvigorw'"))
+  assert.ok(doctor.includes('OHOS_BASE_SDK_HOME'), 'the row must check the variable hvigor actually reads')
+  assert.ok(!/兜底[^\n]*DEVECO_SDK_HOME/.test(doctor), 'DEVECO_SDK_HOME is not a valid fallback for hvigor')
+})
+
 check('a forward-slash drive path is handed to hdc with backslashes', () => {
   // hdc resolved "D:/x/y.hap" under the current directory and said "no such file".
   assert.equal(nativePath('D:/workspace_6/app.hap'), 'D:\\workspace_6\\app.hap')
