@@ -129,6 +129,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.31.2 | 修：`deploy` / `run` 收到 `D:/...` 形式的路径会装不上（hdc 需要反斜杠） |
 | 0.31.1 | 修：两台设备的 `matrix` 被误判成「设备没连接」 |
 | 0.31.0 | `ui op=assert` 支持 `device=all`，结果为「N/M 台符合预期」+ 每台一行 |
 | 0.30.0 | `run` 支持 `matrix`：一条调用里按设备分工，结果是一张表 |

@@ -33,6 +33,7 @@ import {
   findUiNodes,
   flattenUi,
   inferTarget,
+  nativePath,
   parseBounds,
   parseBundleDump,
   parseHvigorOutput,
@@ -892,6 +893,14 @@ check('a matrix is checked against every device, not the default target', () => 
     source.includes("resolveTargets(exec, args.matrix ? 'all' : args.device)"),
     'run must resolve all devices when a matrix is given',
   )
+})
+
+check('a forward-slash drive path is handed to hdc with backslashes', () => {
+  // hdc resolved "D:/x/y.hap" under the current directory and said "no such file".
+  assert.equal(nativePath('D:/workspace_6/app.hap'), 'D:\\workspace_6\\app.hap')
+  assert.equal(nativePath('D:\\workspace_6\\app.hap'), 'D:\\workspace_6\\app.hap')
+  assert.equal(nativePath('/data/local/tmp/a.txt'), '/data/local/tmp/a.txt')
+  assert.equal(nativePath(undefined), undefined)
 })
 
 const failed = results.filter((result) => !result.ok)
