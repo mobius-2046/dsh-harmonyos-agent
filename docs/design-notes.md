@@ -185,3 +185,19 @@ const.product.model / const.product.software.version / const.ohos.apiversion
 `00303208` 的原文是「Unable to find 'sdk.dir' in 'local.properties' or 'OHOS_BASE_SDK_HOME'」——对一个刚 clone 下来的工程，这个文件还不存在，读的人只知道「缺了什么」不知道「放哪、写什么」。所以 `build` 现在直接给路径与整行内容，`doctor` 也单列一行。
 
 顺带纠正一个自己的错误：一开始我把 `DEVECO_SDK_HOME` 也当成兜底，但 hvigor 只认 `local.properties` 与 `OHOS_BASE_SDK_HOME`；把不生效的变量写进「兜底」比不写更糟。
+
+## Fetch 路由必须在 `ctx.effect` 里注册（DSH 0.2.2 起）
+
+`connection.fetch.register(route)` 返回 disposer，路由的寿命跟调用它的 fiber 绑定。旧版本裸调用能生效，0.2.2 起不会——不抛错，只是路由不在 `/api` 路由表里，浏览器拿到框架的纯文本 `not found`。前端若直接 `response.json()`，就会看到 `Unexpected token 'o', "not found" is not valid JSON`。
+
+正确形态（与 `dsh-context` 一致）：
+
+```js
+ctx.inject(['connection'], (webCtx) => {
+  const conn = webCtx.get('connection')
+  const register = conn?.fetch?.register?.bind(conn.fetch)
+  for (const route of routes) webCtx.effect(() => register(route), label)
+})
+```
+
+两个附带的坑：每条路由都要带 `requestBody`（`'buffered'` 或 `'streaming'`），缺一条会让同批后面的注册一起失败；前端解析前必须先判 `response.ok`，否则 404 的纯文本会伪装成 JSON 语法错误。

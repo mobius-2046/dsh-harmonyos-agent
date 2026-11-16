@@ -1,3 +1,11 @@
+## 0.32.2 — 升级到 DSH 0.2.2 后路由又挂上了
+
+从 0.2.2-rc.3 起，`connection.fetch.register()` 必须在 `ctx.effect()` 里调用才会进 `/api` 路由表；裸调用不报错，只是路由不存在，浏览器拿到框架的纯文本 404。表现是 hilog 面板和页脚设备浮层一起失效，浮层上只剩一句 `"not found" is not valid JSON`。
+
+- 注册改成和官方插件相同的形态：`get('connection')` 取服务、`register` 绑定到服务、每条路由包进 `effect`，失败写日志而不是静默；
+- 补上 `GET /api/harmony/sign` 漏掉的 `requestBody`（同一批里缺字段的那条会连累后面的注册）；
+- 设备浮层先判 `response.ok` 再解析，非 JSON 时显示「设备接口不可用（HTTP 404）」而不是解析报错。
+
 ## 0.32.1 — 缺 SDK 位置时说清楚要建哪个文件
 
 新工程第一次构建会在 1 秒内停在 `00303208`，报错里写的是 `local.properties`——而那个文件通常还不存在。现在：

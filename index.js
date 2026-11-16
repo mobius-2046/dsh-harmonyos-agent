@@ -229,7 +229,30 @@ export function apply(ctx) {
   // `connection` service (a CLI or TUI profile) the panel simply never loads,
   // so the optional injection keeps this bundle usable in those compositions.
   ctx.inject(['connection'], (webCtx) => {
-    for (const route of createLogRoutes()) webCtx.connection.fetch.register(route)
-    for (const route of createSignRoutes()) webCtx.connection.fetch.register(route)
+    const connection = webCtx.get('connection')
+    const register = typeof connection?.fetch?.register === 'function'
+      ? connection.fetch.register.bind(connection.fetch)
+      : undefined
+    const warn = (error) => {
+      const message = error instanceof Error ? error.message : String(error)
+      webCtx.logger?.warn?.(`harmony routes: ${message}`)
+    }
+    if (register === undefined) {
+      warn(new Error('connection.fetch.register is unavailable'))
+      return
+    }
+    // `register` hands a route to the harness for the lifetime of the calling
+    // fiber and returns a disposer. Calling it bare works on older releases,
+    // but on 0.2.2 the route never reaches the `/api` mux: the browser then
+    // gets the framework's plain-text 404, which is what turned into
+    // `"not found" is not valid JSON` in the device badge. Wrapping the call in
+    // `effect` is the shape shipped plugins use (`dsh-context` does the same).
+    for (const route of [...createLogRoutes(), ...createSignRoutes()]) {
+      try {
+        webCtx.effect(() => register(route), `harmony: ${route.methods.join(',')} ${route.path}`)
+      } catch (error) {
+        warn(error)
+      }
+    }
   })
 }

@@ -165,6 +165,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 | 0.23.0 | `ui op=wait` 等文字出现或消失 |
 | 0.22.0 | `sign` 核对签名配置与证书有效期 |
 | 0.32.0 | `sign op=sign/verify` 真签名 + 设置页填密码（只存本机） |
+| 0.32.2 | 适配 DSH 0.2.2：Fetch 路由改回 `ctx.effect` 注册，面板与设备浮层恢复 |
 | 0.32.1 | 缺 `local.properties` 时 `build`/`doctor` 直接说该建哪个文件 |
 | 0.21.1 | 设备徽标标出「上次使用」并可切换 |
 | 0.21.0 | `doctor` 每项探测限时，超时与「没来得及跑」分开报 |

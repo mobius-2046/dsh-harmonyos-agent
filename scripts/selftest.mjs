@@ -20,7 +20,7 @@ import { explain } from '../lib/errorcodes.js'
 import { waitUntil } from '../lib/wait.js'
 import { assertUi, uiFingerprint } from '../lib/uiassert.js'
 import { absoluteMaterials, inspectCertificate, parseSigningConfigs, pickSignInput, signingReport } from '../lib/signing.js'
-import { saveSignSettings, signView } from '../lib/signroutes.js'
+import { createSignRoutes, saveSignSettings, signView } from '../lib/signroutes.js'
 import { signCredentials } from '../lib/settings.js'
 import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
 import { attributeFailure } from '../lib/attribute.js'
@@ -484,6 +484,7 @@ check('apply registers /build and /mode, and /build leaves plan mode', () => {
     },
     connection: { fetch: { register() {} } },
     agentPresets: { register: async () => () => {} },
+    get: (name) => (name === 'connection' ? ctx.connection : undefined),
     inject: (_deps, fn) => fn(ctx),
   }
   apply(ctx)
@@ -1007,6 +1008,33 @@ check('sign op refuses to build a command line without a password', () => {
   assert.ok(source.includes('打开 DSH 设置'), 'the message must point at the settings card')
   assert.ok(source.includes('不进对话'), 'and say the password never enters the conversation')
   assert.ok(!/prompt|询问用户密码/.test(source), 'never ask the model to collect a password')
+})
+
+check('every fetch route declares methods and requestBody', () => {
+  const routes = [...createLogRoutes(), ...createSignRoutes()]
+  assert.ok(routes.length >= 5, `expected the log and sign routes, got ${routes.length}`)
+  for (const route of routes) {
+    assert.ok(Array.isArray(route.methods) && route.methods.length > 0, `${route.path} has no methods`)
+    assert.ok(route.requestBody === 'buffered' || route.requestBody === 'streaming', `${route.path} has no requestBody`)
+    assert.equal(typeof route.fetch, 'function', `${route.path} has no fetch`)
+  }
+})
+
+check('routes are registered inside ctx.effect on the bound service', () => {
+  const source = readFileSync(new URL('../index.js', import.meta.url), 'utf8')
+  assert.ok(source.includes('connection.fetch.register.bind(connection.fetch)'), 'register must be bound to the service')
+  assert.ok(source.includes('webCtx.effect(() => register(route)'), 'a bare register() call does not reach the /api mux')
+  assert.ok(!/webCtx\.connection\.fetch\.register\(/.test(source), 'no bare registration left behind')
+})
+
+check('device badge checks the status code before parsing JSON', () => {
+  const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  const start = source.indexOf('function useDeviceList')
+  const end = source.indexOf('function DeviceIndicator', start)
+  const block = source.slice(start, end === -1 ? undefined : end)
+  assert.ok(start > -1, 'useDeviceList must exist')
+  assert.ok(block.includes('if (!response.ok)'), 'the badge must check response.ok')
+  assert.ok(block.includes('await response.json()'), 'and still read the body when the status is fine')
 })
 
 const failed = results.filter((result) => !result.ok)

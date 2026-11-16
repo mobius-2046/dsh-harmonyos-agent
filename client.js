@@ -1545,8 +1545,33 @@ window.__ModuleLoader__.load({
       const [state, setState] = React.useState({ ok: true, devices: [], details: {}, preferred: null, error: null })
       const load = React.useCallback(async () => {
         try {
-          const response = await fetch(DEVICES_API)
-          const data = await response.json()
+          const response = await fetch(DEVICES_API, { headers: { accept: 'application/json' } })
+          if (!response.ok) {
+            // A 404 here is the framework's plain-text `not found`, not our
+            // JSON — parsing it first produced "Unexpected token 'o'" instead
+            // of saying which endpoint failed.
+            setState({
+              ok: false,
+              devices: [],
+              details: {},
+              preferred: null,
+              error: `${tRef.current('error.devices')}（HTTP ${response.status}）`,
+            })
+            return
+          }
+          let data
+          try {
+            data = await response.json()
+          } catch {
+            setState({
+              ok: false,
+              devices: [],
+              details: {},
+              preferred: null,
+              error: `${tRef.current('error.devices')}（响应不是 JSON）`,
+            })
+            return
+          }
           const devices = Array.isArray(data.devices) ? data.devices.filter((id) => typeof id === 'string') : []
           const details = {}
           if (Array.isArray(data.details)) {

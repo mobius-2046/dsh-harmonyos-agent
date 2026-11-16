@@ -22,21 +22,27 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 已做：`fix: true` 时修三类验得出的问题——残留构建锁（`acquireBuildLock` 探测，死 pid 才接管，活进程写「未动」）、缺 pnpm wrapper（`prepareHvigorHome()` 从真实 `~/.hvigor` 补种）、shared 模块缺 signed HSP（补跑 `assembleHsp` 后重新比对产物）。修完重算 ✓ / ! / ✗，修了什么单独列「已修：」并进 `data.repairs`。
 未做：`run` 的归因结果反向驱动自动修复（判成「缺 HSP」就自动 `hsp: true` 重跑）——那要先把归因准确率做实。
 
-### 4. `sign` 动作（0.22.0 已交付诊断部分）
-0.22.0 先做「构建前回答签名会不会出问题」：读 `signingConfigs`、核对三个材料、解析证书有效期。
-**待办**：用 `hap-sign-tool` 真签一个 HAP —— 需要明文密码（DevEco 存的是本地加密串，CLI 解不开），且要有一份自签材料才测得动。
+### 4. `sign` 动作（0.22.0 诊断；2026-11-16 定调：不做凭证库）
+0.22.0 已交付诊断：读 `signingConfigs`、核对三个材料、解析证书有效期、校验 `.p7b` 的 bundleName 是否就是这个工程。
 
-**密码来源已定（用户 m06697）**：仿 DevEco Studio 的做法，让用户在界面里自己填，但必须明确提示「仅存放于本地，不会上传任何云端」。据此拆成三条，按顺序做：
+**定调（用户 m07209 / m07216）**：不在 DSH 里存签名密码，也不按工程存一份。依据是事实而不是偏好——`build-profile.json5` 里 DevEco 写的是本机加密串：
 
-1. `settings.section` 里加一张 **HarmonyOS 签名** 设置卡：keystore 路径、keyAlias、keystore 密码、key 密码、profile/cert 路径；密码输入框 `type=password`，只显示「已保存 / 未保存」，**不回填、不回传**。卡片顶部一句固定提示：「密码只保存在本机 `~/.dsh/dsh-harmony.json`，不会上传到任何云端，也不会出现在对话里。」
-2. Host 侧新增只写不读的路由 `POST /api/harmony/sign`（保存）与 `GET /api/harmony/sign`（只返回 `{ hasKeystorePassword, hasKeyPassword, keystorePath, keyAlias }`，永不返回密码原文）；文件写入沿用 `settings.js` 的临时文件 + rename，Windows 上再把 ACL 收紧到仅当前用户。
-3. `sign` 动作加 `op=sign`：用保存的密码调 `hap-sign-tool sign-app`；没有密码时如实说「还没配置密码，去设置页填一次」，绝不提示模型去问用户密码。
-   - 2026-11-15 已交付 `op=sign` / `op=verify` + 设置页「HarmonyOS 签名」卡（密码只写不读、只存本机）。
-   - 订正原计划：这个 `hap-sign-tool` 的 `sign-app` 不接受 `-pwdInputMode`（11011005），密码**只能**走命令行参数（DevEco 同样如此）；因此密码来源仍是设置页/环境变量，但传输只能 argv，我们对所有返回行与命令做 `***` 掩码。**成功路径还需要真实密码跑一次**（你填设置卡后我可以验）。
+```
+"keyPassword": "0000001BDD99704D6DD45EA682FCCDCD1C1C7E9414D33AA5633A2DA004BE086E2D13CA6DAD23023076BA9E"
+```
 
-验收：设置页填一次 → `sign op=sign` 用真实 keystore 签出一个 APK/HAP 并被 `hap-sign-tool verify-app` 认；对话记录、日志、`data` 里都不出现密码；删掉配置文件后 `sign` 回到「未配置」而不是报错。
+而 `hvigorw assembleHap` 用它**签出来了**（`entry-default-signed.hap`，本工程 11-15 构建产物，装到两台真机并启动成功）。即：签名是工程配置的一部分，`hvigor` 自己就能完成，DSH 既不需要知道密码，也不需要保管它。
 
-改动面：`client.js`（`settings.section` 卡片 + 两个 fetch）、`lib/hilog.js` 或新 `lib/signapi.js`（两条路由）、`lib/settings.js`（新字段 + ACL）、`lib/signing.js`（`signApp()`）、`lib/tools.js`（`sign` 的 `op` 参数）、selftest 与 README。
+因此 0.32.x 里那套东西全部移除（0.33.0）：`lib/signroutes.js`、`client.js` 的 `SignSection` 与 `signNav` 等键、`lib/settings.js` 的 `signCredentials()`、两个 `DSH_HARMONY_*_PASSWORD` 环境变量、`sign` 的 `credentials` 失败分支。
+
+`sign` 保留三个 op：
+- `report`：材料是否齐、证书还剩多少天、`p7b` 的 bundleName 是否匹配、有没有 DevEco 加密串。
+- `verify`：`hap-sign-tool verify-app`，不需要密码。
+- `rebuild`：跑一次构建让 `hvigor` 重新签名（等价于 `build`，但在签名语义下调用）。
+
+自定义证书（不想用 DevEco 自动签名那份）的正确入口是 DevEco 的签名界面：配一次、写进工程、可以进版本管理。DSH 不复制这套存储，也就不会出现「A 工程用了 B 的钥匙」。
+
+验收：`sign op=report` 给出到期天数与 profile 匹配结论；`sign op=rebuild` 产出新 signed HAP 且 `verify` 通过；全仓 grep 不到任何密码字段。
 
 ## 中期
 
@@ -52,11 +58,38 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 已做：`run` 的 `matrix` 按设备分配动作（`"id=run;id=install;id=uninstall"`）；编译一次、按设备并行，结果是一张设备 × 动作的表；写法错在编译前返回，未连接的 id 直接列出当前在线设备。
 未做：把 `ui assert` 的期望也按设备写进 matrix（同一用例在不同机型上跑不同断言）。
 
+## 减少打开 DevEco 的次数（用户 2026-11-16 提出，按此顺序做）
+
+用户仍会为四件事打开 DevEco：看 log、看代码、性能分析、查看手机文件与数据库。除性能分析的图形部分外，其余都能收窄。
+
+### 8. 日志回到对话（优先）
+- 现状：`logs` 贴末 200 行原文，面板与对话分离，眼睛来回跳。
+- 做：`captureLogs` 输出**摘要**——新出现的行、错误与警告、重复行折叠（`×N`）、时间范围、进程；原文只在 `full: true` 时给。面板筛选结果加一个「复制摘要」按钮，压成十几行粘进对话。
+- 验收：一次 5 秒抓取在 12 行内说清「有没有新错误」；`full: true` 才回落到原文。
+
+### 9. 手机文件浏览
+- `file` 已有 `pull`/`send`；补 `op=ls` / `op=cat` / `op=du`（走 `hdc shell`，只读，plan 模式放行）。
+- 验收：`ls /data/local/tmp`、`cat` 一个小文本、`du -sh` 一个目录都能出结果；不存在的路径给出 `[Fail]` 原文而不是「没有可用设备」这类误导。
+
+### 10. 数据库查询（先验可达性）
+- 目标：`db tables | schema | query`，pull 出 RDB 后用宿主自带 Python 的 `sqlite3` 只读打开。
+- 前置：`hdc shell run-as <bundle>` 或 root 能否读到 `/data/app/el2/100/database/<bundle>/…`。今晚先在你机器上验一次；不通就降级为「列出数据库文件并 pull 回来」。
+- 安全：`file:...?mode=ro` 只读打开；只允许 `SELECT` / `PRAGMA`，其余直接拒绝。
+
+### 11. 代码导航页（只读）
+- 一条命令生成静态 HTML：文件树、ArkTS 符号索引、点开看原文，纯静态零依赖，浏览器打开。
+- 不做：编辑、跳转定义、重构——那是 IDE 的活，做一半更难用。
+
+### 12. trace 采集（分析交回 IDE）
+- `trace start|stop|pull` 走 `hitrace` / `hiprofiler_cmd`，输出录制时长、进程、文件路径与摘要指标。
+- 明确不做火焰图与帧分析；文件交给 DevEco Profiler 看。
+
 ## 待定
 
-- **`scaffold`（新建工程）**：用户 2026-11-12 定调——「之后好好规划后再做，初步想法是对齐 DevEco Studio 的新建工程」。所以不做自制模板，目标是复现 DevEco 的向导体验（选模板 → 选 API 版本/设备类型 → 生成可构建工程 → 自动签名）。
-  已探明：模板在 `C:\Program Files\Huawei\DevEco Studio 611\plugins\{harmony,openharmony}\lib\templates\` 下，按 `ability / extension / module / page / project` 分类；`plugins/codegenie-plugin/previewProjectTemplate` 另有一套预览用模板。
-  待调研：模板描述文件格式（占位符、参数化 API 版本与包名的方式）、是否需要 `ohpm` 预装依赖、生成后如何拿到自动签名材料。规划清楚前不动手。
+- ~~**`scaffold`（新建工程）**~~：**不做（用户 2026-11-16 定）**。理由不是「暂时没空」，而是职责错位——建工程的本质是「模板 + API 版本 + 签名 + 设备」四件事的绑定，其中模板、签名、设备都属于 IDE；DSH 造出来的工程在签好名之前装不上，最后仍要回 DevEco 点一次自动签名，等于交付一个半成品。DSH 的价值在「已有工程上把改代码 → 编译 → 装机 → 看日志 → 验界面跑通」。
+  若将来仍想要「一句话建工程」，正确的做法是薄封装官方 `devecocli`（`hms_*` 通道），而不是自制模板树——那条通道本机是否可用尚未验证。
+- ~~**演示 GIF**~~：**不做（用户 2026-11-16 定，m07250）**。理由：唯一能公开的示例是 `samples/hello-app`（点一下数字变 1），录出来体现不了这个工具的价值；真实工程的画面涉内部产品，不能进公开仓库；GIF 还会随 UI 改动过期、永久占仓库体积。
+  替代做法（做一次就够）：README 里贴一段 `harmony run` 的**真实输出**——编译耗时、装到哪台、启动结果、日志里出现什么，一条不美化；「想验证自己的机器能不能编」指向 `samples/hello-app`（10 秒出 unsigned HAP）。
 - **CI**：hvigor 构建依赖本地 DevEco SDK，托管机器上没有；只能跑纯逻辑自测（现有 33 项里约一半可脱离真机）。
 
 ## 已交付
