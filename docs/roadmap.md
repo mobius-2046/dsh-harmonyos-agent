@@ -67,7 +67,7 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 - 做：`captureLogs` 输出**摘要**——新出现的行、错误与警告、重复行折叠（`×N`）、时间范围、进程；原文只在 `full: true` 时给。面板筛选结果加一个「复制摘要」按钮，压成十几行粘进对话。
 - 验收：一次 5 秒抓取在 12 行内说清「有没有新错误」；`full: true` 才回落到原文。
 
-### 9. 手机文件浏览
+### 9. 手机文件浏览 ✅ 0.35.0
 - `file` 已有 `pull`/`send`；补 `op=ls` / `op=cat` / `op=du`（走 `hdc shell`，只读，plan 模式放行）。
 - 验收：`ls /data/local/tmp`、`cat` 一个小文本、`du -sh` 一个目录都能出结果；不存在的路径给出 `[Fail]` 原文而不是「没有可用设备」这类误导。
 

@@ -24,6 +24,7 @@ import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
 import { attributeFailure } from '../lib/attribute.js'
 import { formatMatrixRow, parseDeviceMatrix } from '../lib/devicematrix.js'
 import { formatLogSummary, parseLogLine, summarizeLogs } from '../lib/logsummary.js'
+import { formatBytes, formatEntry, parseDuKb, parseLsListing } from '../lib/remotefs.js'
 import { formatAssertRow } from '../lib/uiassert.js'
 import {
   createHarmonyTools,
@@ -1018,6 +1019,41 @@ check('logs exposes a view switch and summarises by default', () => {
   const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
   assert.ok(source.includes("String(args.view ?? 'summary')"), 'summary is the default view')
   assert.ok(source.includes('formatLogSummary(digest)'), 'the default branch renders the digest')
+})
+
+check('parseLsListing keeps names with spaces and sorts directories first', () => {
+  const listing = [
+    'total 12',
+    'drwxrwx--x 2 shell shell 4096 2025-11-10 20:11 .',
+    'drwxrwx--x 2 shell shell 4096 2025-11-10 20:11 .cache',
+    '-rw-r--r-- 1 shell shell   44 2025-11-10 20:05 dsh-file-test.txt',
+    '-rw-r--r-- 1 shell shell  128 2025-11-10 20:07 my log file.txt',
+  ].join('\n')
+  const entries = parseLsListing(listing)
+  assert.equal(entries.length, 3, 'dot rows are dropped')
+  assert.equal(entries[0].name, '.cache')
+  assert.equal(entries[0].dir, true)
+  assert.equal(entries[1].name, 'dsh-file-test.txt')
+  assert.equal(entries[1].size, 44)
+  assert.equal(entries[1].mtime, '2025-11-10 20:05')
+  assert.equal(entries[2].name, 'my log file.txt', 'a space in the name is not a column')
+})
+
+check('parseDuKb and formatBytes answer in units a person reads', () => {
+  assert.equal(parseDuKb('1234\t/data/local/tmp'), 1234)
+  assert.equal(parseDuKb('du: /nope: No such file or directory'), undefined)
+  assert.equal(formatBytes(812), '812 B')
+  assert.equal(formatBytes(1433), '1.4 KB')
+  assert.equal(formatBytes(2.5 * 1024 * 1024), '2.5 MB')
+  assert.equal(formatEntry({ name: 'a.txt', dir: false, link: false, size: 44, mtime: '2025-11-10 20:05' }), '- ' + formatBytes(44).padStart(7) + '  2025-11-10 20:05  a.txt')
+})
+
+check('file action exposes the read-only ops and still guards send', () => {
+  const schema = tools[0].parameters.properties
+  for (const op of ['ls', 'cat', 'du']) assert.ok(schema.op.enum.includes(op), `${op} is offered`)
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  assert.ok(source.includes("if (op === 'ls' || op === 'cat' || op === 'du')"), 'the three ops share one branch')
+  assert.ok(/next === 'send'/.test(source) || source.includes("op === 'send'"), 'send keeps its own permission shape')
 })
 
 const failed = results.filter((result) => !result.ok)

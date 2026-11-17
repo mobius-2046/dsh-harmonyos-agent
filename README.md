@@ -90,7 +90,7 @@ dsh plugin --profile desktop add file:<本目录>
 | `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm；`fix: true` 时顺手修三类验得出的问题 |
 | `sign` | 核对签名材料与证书有效期；`op=verify` 验已有签名；`op=rebuild` 让 hvigor 重签一次 |
 | `ui` | `dump` 读控件树；`find` 只查不点；`wait` 等文字出现/消失；`assert` 断言界面（文字、个数、指纹），`device=all` 逐台跑出一张表；`tap`/`input`/`key`/`swipe` 操作 |
-| `file` | `op=pull` 拉回设备文件、`op=send` 推到设备 |
+| `file` | `op=pull` 拉回、`op=send` 推上去；`op=ls` 列目录、`op=cat` 读文本开头、`op=du` 算目录大小（这三个只读，plan 模式下也能用） |
 | `crash` | 读最新 jscrash / cppcrash / appfreeze，解出进程、原因、栈顶帧 |
 | `docs` | 离线文档：`config` 配目录、`search` 查关键词、`read` 读原文、`api` 查接口的 `@since` |
 
@@ -126,6 +126,16 @@ harmony run projectDir=<仓库>/samples/hello-app device=all
 
 `build-profile.json5` 里的 `storePassword`/`keyPassword` 是 DevEco 的本地加密串，只有 DevEco 和 hvigor 解得上——仓库里放它没问题，本插件也从不尝试解密。
 
+## 翻手机上的文件
+
+不用把文件拉回本机也能看：
+
+    harmony file op=ls remote=/data/local/tmp        # 目录在前，带大小与时间
+    harmony file op=cat remote=/data/local/tmp/app.log   # 只读开头 64 KB，用 seconds 改预算
+    harmony file op=du remote=/data/log              # 这个目录占多少
+
+这几个 op 只认设备上的绝对路径（`/data/...`），不认 Windows 盘符。路径不存在时会把 `ls`/`head` 自己的报错原样带出来，不会骗你说「是空的」。
+
 ## 看日志与查文档
 
 点侧边栏 **hilog**：选设备 → 灌入最近 120 行 → 实时追加。按级别、进程、关键字过滤都在浏览器里完成，不重连。
@@ -155,6 +165,12 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.35.0 | `file` 加 `ls` / `cat` / `du`：不拉文件也能看目录、读文本开头、算占用（只读，plan 下也可用） |
+| 0.34.0 | `logs` 默认返回摘要（级别计数、重复折叠、错误列表），回答"有没有新错误" |
+| 0.33.0 | `sign` 收敛为 report / verify / rebuild：删掉设置页填密码与凭证库，密码回到工程配置 |
+| 0.32.2 | 适配 DSH 0.2.2：Fetch 路由改在 `ctx.effect` 里注册，面板与设备浮层恢复 |
+| 0.32.1 | 缺 `local.properties` 时 `build` / `doctor` 直接说该建哪个文件 |
+| 0.32.0 | `sign op=sign/verify` 真签名 + 设置页填密码（只存本机） |
 | 0.31.2 | 修：`deploy` / `run` 收到 `D:/...` 形式的路径会装不上（hdc 需要反斜杠） |
 | 0.31.1 | 修：两台设备的 `matrix` 被误判成「设备没连接」 |
 | 0.31.0 | `ui op=assert` 支持 `device=all`，结果为「N/M 台符合预期」+ 每台一行 |
@@ -167,11 +183,6 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 | 0.24.0 | 同一工程同时只跑一个构建 |
 | 0.23.0 | `ui op=wait` 等文字出现或消失 |
 | 0.22.0 | `sign` 核对签名配置与证书有效期 |
-| 0.34.0 | `logs` 默认返回摘要（级别计数、重复折叠、错误列表），并回答"有没有新错误" |
-| 0.33.0 | `sign` 收敛为 report / verify / rebuild：删掉设置页填密码与凭证库，密码回到工程配置 |
-| 0.32.0 | `sign op=sign/verify` 真签名 + 设置页填密码（只存本机） |
-| 0.32.2 | 适配 DSH 0.2.2：Fetch 路由改回 `ctx.effect` 注册，面板与设备浮层恢复 |
-| 0.32.1 | 缺 `local.properties` 时 `build`/`doctor` 直接说该建哪个文件 |
 | 0.21.1 | 设备徽标标出「上次使用」并可切换 |
 | 0.21.0 | `doctor` 每项探测限时，超时与「没来得及跑」分开报 |
 | 0.20.0 | 离线文档：`docs` 的 config / search / read / api |
