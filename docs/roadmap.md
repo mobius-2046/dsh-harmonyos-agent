@@ -33,7 +33,7 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 
 而 `hvigorw assembleHap` 用它**签出来了**（`entry-default-signed.hap`，本工程 11-15 构建产物，装到两台真机并启动成功）。即：签名是工程配置的一部分，`hvigor` 自己就能完成，DSH 既不需要知道密码，也不需要保管它。
 
-因此 0.32.x 里那套东西全部移除（0.33.0）：`lib/signroutes.js`、`client.js` 的 `SignSection` 与 `signNav` 等键、`lib/settings.js` 的 `signCredentials()`、两个 `DSH_HARMONY_*_PASSWORD` 环境变量、`sign` 的 `credentials` 失败分支。
+因此 0.32.x 里那套东西已全部移除（**0.33.0 已交付**）：`lib/signroutes.js`、`client.js` 的 `SignSection` 与 `signNav` 等键、`lib/settings.js` 的 `signCredentials()`、两个 `DSH_HARMONY_*_PASSWORD` 环境变量、`lib/signing.js` 的 `signApp()`（唯一把密码放到命令行上的路径）。验收方式是断言而不是印象：`npm test` 里有一条检查会扫 `lib/`、`index.js`、`client.js`，确认没有 `keystorePwd` / `keyPwd` / `signCredentials` / `DSH_HARMONY_KEYSTORE_PASSWORD`。
 
 `sign` 保留三个 op：
 - `report`：材料是否齐、证书还剩多少天、`p7b` 的 bundleName 是否匹配、有没有 DevEco 加密串。

@@ -10,8 +10,6 @@ window.__ModuleLoader__.load({
     const NS = 'harmonyLogs'
     /** Authenticated Host routes registered by this bundle's index.js. */
     const DEVICES_API = '/api/harmony/logs/devices'
-    /** Signing credentials: write-only from the page's point of view. */
-    const SIGN_API = '/api/harmony/sign'
     const PREFERRED_API = '/api/harmony/logs/preferred'
     const PROCESSES_API = '/api/harmony/logs/processes'
     const LOGS_API = '/api/harmony/logs'
@@ -225,22 +223,6 @@ window.__ModuleLoader__.load({
       devicesHint: '用 hdc 或 DevEco 连上设备，这里会自动出现',
       devicesDefault: '默认',
       devicesPreferred: '上次使用',
-      signNav: 'HarmonyOS 签名',
-      signIntro: '用户在设置页填写后只保存在本机，不上传任何云端，也不会出现在对话里。',
-      signKeystore: '密钥库（p12）',
-      signAlias: 'keyAlias',
-      signCert: '证书（cer/pem）',
-      signProfile: 'Profile（p7b）',
-      signKeystorePwd: '密钥库密码',
-      signKeyPwd: 'key 密码（留空则同密钥库密码）',
-      signSaved: '已保存',
-      signMissing: '未保存',
-      signSave: '保存',
-      signSaving: '保存中…',
-      signSavedOk: '已保存到本机配置文件',
-      signClearPwd: '清除密码',
-      signNote: '密码字段不会回显：保存后只显示「已保存」，页面上读不到原值。',
-      signSourceEnv: '当前用环境变量的密码（设置页保存的会被覆盖）。',
       devicesUseThis: '点一下改用这台',
       devicesConnected: '在线',
       devicesApi: 'API {v}',
@@ -344,22 +326,6 @@ window.__ModuleLoader__.load({
       devicesHint: 'Connect one with hdc or DevEco and it shows up here',
       devicesDefault: 'default',
       devicesPreferred: 'last used',
-      signNav: 'HarmonyOS signing',
-      signIntro: 'Stored on this machine only — never uploaded, never shown in a conversation.',
-      signKeystore: 'Keystore (p12)',
-      signAlias: 'keyAlias',
-      signCert: 'Certificate (cer/pem)',
-      signProfile: 'Profile (p7b)',
-      signKeystorePwd: 'Keystore password',
-      signKeyPwd: 'Key password (blank = same as keystore)',
-      signSaved: 'saved',
-      signMissing: 'not set',
-      signSave: 'Save',
-      signSaving: 'Saving…',
-      signSavedOk: 'Saved to the local config file',
-      signClearPwd: 'Clear passwords',
-      signNote: 'Password fields are write-only: after saving the page only says "saved" and cannot read the value back.',
-      signSourceEnv: 'Passwords currently come from environment variables and override anything saved here.',
       devicesUseThis: 'click to make this the default',
       devicesConnected: 'online',
       devicesApi: 'API {v}',
@@ -545,23 +511,6 @@ window.__ModuleLoader__.load({
       ".hd-hint{font-size:11px;line-height:17px;opacity:.85}",
       ".hd-foot{padding:7px 12px;border-top:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);font-size:10.5px}",
       ".hd-error{color:var(--dsw-alias-state-error-primary)}",
-      ".sg-page{display:flex;flex-direction:column;gap:10px;max-width:640px;padding:4px 2px 8px;font:13px/1.6 var(--dsw-font-family,system-ui)}",
-      ".sg-intro{margin:0;padding:8px 10px;border-radius:8px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.7}",
-      ".sg-note{margin:0;color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:1.7}",
-      ".sg-field{display:flex;flex-direction:column;gap:4px}",
-      ".sg-field label{color:var(--dsw-alias-label-secondary);font-size:12px}",
-      ".sg-field input{box-sizing:border-box;height:30px;width:100%;padding:0 8px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font:inherit;font-size:12.5px}",
-      ".sg-field input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}",
-      ".sg-status{font-size:11.5px;color:var(--dsw-alias-label-tertiary)}",
-      ".sg-status[data-ok='true']{color:var(--dsw-alias-state-success-primary)}",
-      ".sg-status[data-ok='false']{color:var(--dsw-alias-state-error-primary)}",
-      ".sg-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}",
-      ".sg-button{height:28px;padding:0 12px;border-radius:6px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;cursor:pointer}",
-      ".sg-button:hover{background:var(--dsw-alias-bg-layer-2)}",
-      ".sg-button[data-primary='true']{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:#fff}",
-      ".sg-button:disabled{opacity:.6;cursor:default}",
-      ".sg-pill{display:inline-block;padding:1px 6px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font-size:10.5px}",
-      ".sg-pill[data-ok='true']{background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 20%,transparent);color:var(--dsw-alias-state-success-primary)}",
     ].join('')
 
     if (typeof document !== 'undefined' && document.getElementById(STYLE_ID) === null) {
@@ -1756,140 +1705,6 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /**
-     * Settings card for the signing credentials.
-     *
-     * The password fields are write-only by construction: the Host never sends
-     * them back, so the inputs start empty even when something is saved and the
-     * card reports "saved" from a boolean. That is the whole point — a secret a
-     * page can read is a secret that ends up in a screenshot.
-     * @param {{ t?: (key: string) => string }} props slot props.
-     * @returns {object} element.
-     */
-    function SignSection(props) {
-      const t = translator(props.t)
-      const [view, setView] = React.useState(null)
-      const [status, setStatus] = React.useState('')
-      const [ok, setOk] = React.useState(null)
-      const [busy, setBusy] = React.useState(false)
-      const [form, setForm] = React.useState({
-        keystorePath: '',
-        keyAlias: '',
-        certPath: '',
-        profilePath: '',
-        keystorePassword: '',
-        keyPassword: '',
-      })
-
-      const applyView = React.useCallback((data) => {
-        setView(data)
-        const configured = data && data.configured ? data.configured : {}
-        setForm((current) => ({
-          ...current,
-          keystorePath: configured.keystorePath ?? '',
-          keyAlias: configured.keyAlias ?? '',
-          certPath: configured.certPath ?? '',
-          profilePath: configured.profilePath ?? '',
-          keystorePassword: '',
-          keyPassword: '',
-        }))
-      }, [])
-
-      React.useEffect(() => {
-        let disposed = false
-        fetch(SIGN_API, { headers: { accept: 'application/json' } })
-          .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
-          .then((data) => {
-            if (!disposed) applyView(data)
-          })
-          .catch((error) => {
-            if (!disposed) {
-              setOk(false)
-              setStatus(error instanceof Error ? error.message : String(error))
-            }
-          })
-        return () => {
-          disposed = true
-        }
-      }, [applyView])
-
-      const update = (field) => (event) => setForm((current) => ({ ...current, [field]: event.target.value }))
-
-      const send = async (payload) => {
-        setBusy(true)
-        setStatus(t('signSaving'))
-        setOk(null)
-        try {
-          const response = await fetch(SIGN_API, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(payload),
-          })
-          const data = await response.json()
-          if (!response.ok || data.ok === false) {
-            setOk(false)
-            setStatus(typeof data.error === 'string' ? data.error : `HTTP ${response.status}`)
-            return
-          }
-          applyView(data)
-          setOk(true)
-          setStatus(t('signSavedOk'))
-        } catch (error) {
-          setOk(false)
-          setStatus(error instanceof Error ? error.message : String(error))
-        } finally {
-          setBusy(false)
-        }
-      }
-
-      const configured = view && view.configured ? view.configured : {}
-      const field = (labelText, key, options = {}) => h('div', { className: 'sg-field' },
-        h('label', { htmlFor: `harmony-sign-${key}` }, labelText),
-        h('input', {
-          id: `harmony-sign-${key}`,
-          type: options.password ? 'password' : 'text',
-          value: form[key],
-          autoComplete: 'off',
-          spellCheck: false,
-          placeholder: options.password
-            ? (configured[key === 'keystorePassword' ? 'hasKeystorePassword' : 'hasKeyPassword'] ? t('signSaved') : t('signMissing'))
-            : '',
-          onInput: update(key),
-        }),
-      )
-
-      return h('div', { className: 'sg-page' },
-        h('p', { className: 'sg-intro' }, t('signIntro')),
-        field(t('signKeystore'), 'keystorePath'),
-        field(t('signAlias'), 'keyAlias'),
-        field(t('signCert'), 'certPath'),
-        field(t('signProfile'), 'profilePath'),
-        field(t('signKeystorePwd'), 'keystorePassword', { password: true }),
-        field(t('signKeyPwd'), 'keyPassword', { password: true }),
-        h('p', { className: 'sg-note' }, t('signNote')),
-        view !== null && view.source === 'env' ? h('p', { className: 'sg-note' }, t('signSourceEnv')) : null,
-        h('div', { className: 'sg-actions' },
-          h('button', {
-            type: 'button',
-            className: 'sg-button',
-            'data-primary': 'true',
-            disabled: busy,
-            onClick: () => send(form),
-          }, busy ? t('signSaving') : t('signSave')),
-          h('button', {
-            type: 'button',
-            className: 'sg-button',
-            disabled: busy,
-            onClick: () => send({ clearPassword: true }),
-          }, t('signClearPwd')),
-          configured.hasKeystorePassword
-            ? h('span', { className: 'sg-pill', 'data-ok': 'true' }, `${t('signKeystorePwd')} · ${t('signSaved')}`)
-            : h('span', { className: 'sg-pill' }, `${t('signKeystorePwd')} · ${t('signMissing')}`),
-          status === '' ? null : h('span', { className: 'sg-status', 'data-ok': ok === null ? undefined : String(ok === true) }, status),
-        ),
-      )
-    }
-
     return {
       inject: ['slots', 'locale'],
       // Plain-JS render internals exercised by harmony-logs-selftest.mjs; the
@@ -1923,16 +1738,6 @@ window.__ModuleLoader__.load({
           label: () => t('devicesEntry'),
         }, DeviceIndicator))
 
-        // Signing credentials live in the settings page: they are typed once per
-        // machine, not per conversation, and the card says plainly that they stay
-        // local. A tool call must never be the place a password is entered.
-        ctx.slots.inject('settings.section', () => ctx.slots.register({
-          name: 'settings.section',
-          id: 'harmony-sign',
-          order: 60,
-          locale: NS,
-          label: () => t('signNav'),
-        }, SignSection))
       },
     }
   },

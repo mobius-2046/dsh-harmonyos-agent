@@ -1,3 +1,11 @@
+## 0.33.0 — 不存密码了
+
+`hvigorw assembleHap` 本来就会用 `build-profile.json5` 里那份（DevEco 本地加密的）配置签出 `*-signed.hap`；插件再去收集一次明文密码，只是多一个会被泄露的地方。这一版把它整个删掉：
+
+- `sign` 只留三个动作：`report`（材料/证书/引用，plan 模式可用）、`verify`（`hap-sign-tool verify-app` 验已签的包）、`rebuild`（让 hvigor 重新构建并签名）。
+- 删除：DSH 设置页的「HarmonyOS 签名」卡片、`/api/harmony/sign` 两条路由、`signCredentials()`、`DSH_HARMONY_KEYSTORE_PASSWORD` / `DSH_HARMONY_KEY_PASSWORD`、`signApp()` 里那次命令行传密码。
+- 全仓不再出现任何"让用户把密码交给插件"的路径：`sign` 遇到未签名的包只会说"先 build，或者去 DevEco 配一次签名"。
+
 ## 0.32.2 — 升级到 DSH 0.2.2 后路由又挂上了
 
 从 0.2.2-rc.3 起，`connection.fetch.register()` 必须在 `ctx.effect()` 里调用才会进 `/api` 路由表；裸调用不报错，只是路由不存在，浏览器拿到框架的纯文本 404。表现是 hilog 面板和页脚设备浮层一起失效，浮层上只剩一句 `"not found" is not valid JSON`。

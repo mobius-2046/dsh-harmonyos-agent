@@ -201,3 +201,11 @@ ctx.inject(['connection'], (webCtx) => {
 ```
 
 两个附带的坑：每条路由都要带 `requestBody`（`'buffered'` 或 `'streaming'`），缺一条会让同批后面的注册一起失败；前端解析前必须先判 `response.ok`，否则 404 的纯文本会伪装成 JSON 语法错误。
+
+## 为什么仓库里不留密码（0.33.0 的决定）
+
+0.32.0 曾经做过一次"仿 DevEco"的设置卡：用户填 p12 密码，存在本机配置文件里，不显示、不上云。它工作过，但被删掉了，理由是一条事实：
+
+`build-profile.json5` 里的 `keyPassword` 是 DevEco 的本地加密串，`hvigorw assembleHap` 用它就能签出 `*-signed.hap` 并装到真机。也就是说签名早已是**工程配置**的一部分，插件再收集一次明文密码，只是凭空多出一个会泄露、会过期、会跟工程不一致的副本。
+
+现在的分工是：工程里配签名（DevEco 配一次、可进版本管理）→ `hvigorw` 自己签 → `sign op=verify` 只验不签。代价是"不配签名的工程只能出 unsigned"，这一点在 `README` 的边界里写明，比藏一个密码库诚实。
