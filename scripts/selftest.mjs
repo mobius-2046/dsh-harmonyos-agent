@@ -26,6 +26,7 @@ import { formatMatrixRow, parseDeviceMatrix } from '../lib/devicematrix.js'
 import { formatLogSummary, parseLogLine, summarizeLogs } from '../lib/logsummary.js'
 import { formatBytes, formatEntry, parseDuKb, parseLsListing } from '../lib/remotefs.js'
 import { checkReadOnlySql, formatRows } from '../lib/db.js'
+import { formatTraceSummary, parseTraceLine, summarizeTrace } from '../lib/trace.js'
 import { formatAssertRow } from '../lib/uiassert.js'
 import {
   createHarmonyTools,
@@ -92,7 +93,7 @@ check('parameters is an object-root JSON Schema with action required', () => {
 })
 
 check('action enum covers every documented action', () => {
-  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'crash', 'db', 'deploy', 'deps', 'devices', 'docs', 'doctor', 'file', 'logs', 'run', 'screenshot', 'sign', 'ui'])
+  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'crash', 'db', 'deploy', 'deps', 'devices', 'docs', 'doctor', 'file', 'logs', 'run', 'screenshot', 'sign', 'trace', 'ui'])
 })
 
 check('op covers the four app lifecycle operations and the five ui operations', () => {
@@ -1086,6 +1087,46 @@ check('db action lists and queries with a sql parameter', () => {
   const dbSource = readFileSync(new URL('../lib/db.js', import.meta.url), 'utf8')
   assert.ok(dbSource.includes('readOnly: true'), 'sqlite is opened read-only')
   assert.ok(source.includes("import { checkReadOnlySql, formatRows, queryDatabase } from './db.js'"))
+})
+
+check('parseTraceLine reads comm, pid, cpu, timestamp and event', () => {
+  const record = parseTraceLine('  xcommander-1234  ( 1234) [003] d..1 1234.567890: sched_switch: prev_comm=idle')
+  assert.equal(record.comm, 'xcommander')
+  assert.equal(record.pid, 1234)
+  assert.equal(record.cpu, 3)
+  assert.equal(record.ts, 1234.56789)
+  assert.equal(record.event, 'sched_switch')
+  assert.equal(parseTraceLine('# tracer: nop'), null)
+})
+
+check('summarizeTrace ranks events and processes and flags a full buffer', () => {
+  const lines = [
+    '# entries-in-buffer/entries-written: 100/100   #P:8',
+    '  a-1  ( 1) [000] d..1 10.000000: sched_switch: prev_comm=a',
+    '  a-1  ( 1) [000] d..1 10.500000: sched_switch: prev_comm=a',
+    '  b-2  ( 2) [001] d..1 10.750000: sched_wakeup: comm=b',
+  ]
+  const summary = summarizeTrace(lines)
+  assert.equal(summary.parsed, 3)
+  assert.equal(summary.durationMs, 750)
+  assert.deepEqual(summary.byEvent[0], ['sched_switch', 2])
+  assert.deepEqual(summary.byComm[0], ['a', 2])
+  assert.deepEqual(summary.cpus, [0, 1])
+  assert.equal(summary.bufferFull, true)
+  const text = formatTraceSummary(summary)
+  assert.match(text, /3 条事件 · 750 ms · 2 个 CPU · 缓冲区已写满/)
+  assert.match(text, /sched_switch/)
+  assert.match(formatTraceSummary(summarizeTrace(['# only a header'])), /没有可解析的 trace 记录/)
+})
+
+check('trace action takes a category list and refuses a busy tracing service loudly', () => {
+  const schema = tools[0].parameters.properties
+  assert.ok(schema.action.enum.includes('trace'), 'trace is an action')
+  assert.equal(schema.categories.type, 'string')
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  assert.ok(source.includes('OpenRecording failed'), 'the 1103 message is recognised')
+  assert.ok(source.includes('hitrace --stop_bgsrv'), 'the snapshot server is restarted once')
+  assert.ok(source.includes('perfetto'), 'the raw file is handed over instead of a fake flame graph')
 })
 
 const failed = results.filter((result) => !result.ok)

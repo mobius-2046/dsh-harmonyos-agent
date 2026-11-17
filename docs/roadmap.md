@@ -80,7 +80,7 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 - 一条命令生成静态 HTML：文件树、ArkTS 符号索引、点开看原文，纯静态零依赖，浏览器打开。
 - 不做：编辑、跳转定义、重构——那是 IDE 的活，做一半更难用。
 
-### 12. trace 采集（分析交回 IDE）
+### 12. trace 采集（分析交回 IDE）✅ 0.37.0
 - `trace start|stop|pull` 走 `hitrace` / `hiprofiler_cmd`，输出录制时长、进程、文件路径与摘要指标。
 - 明确不做火焰图与帧分析；文件交给 DevEco Profiler 看。
 

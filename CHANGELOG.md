@@ -1,3 +1,10 @@
+## 0.37.0
+
+- 新增 `trace` 动作：跑 `hitrace -t <seconds> -b 8192 -o <file> <categories>`，把文件拉回 `%TEMP%/dsh-harmony-trace/`，再用 `lib/trace.js` 解析文本 trace，输出「N 条事件 · 时长 · CPU 数 · 缓冲区是否写满」+ 事件类型排行 + 进程排行。
+- `hitrace` 的 1103（`OpenRecording failed`）会先自动 `--stop_bgsrv/--start_bgsrv` 重试一次；仍失败则原样转述并指出真正原因（DevEco Profiler 占用 / 需要重启设备），不吞掉。
+- 真机实测：重启设备后 2 秒抓到 33 194 条事件（64% `sched_switch`、32% `sched_wakeup`），8 个 CPU；原始文件可交 perfetto。
+- 自测 81/81（新增解析、排行、缓冲区满标记、1103 识别与 perfetto 交代四项）。
+
 ## 0.36.0
 
 - 新增 `db` 动作：`op=list` 列出应用沙箱里的 SQLite（默认按 `/data/app/el2/*/database/<bundle>/.../*.db` 找），`op=query` 把指定的库（连同 `-wal`/`-shm`）拉到临时目录，用 `node:sqlite` 只读打开再跑一条语句。

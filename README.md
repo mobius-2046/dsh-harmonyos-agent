@@ -74,7 +74,7 @@ dsh plugin --profile desktop add file:<本目录>
 | goal | `/goal <目标>；完成判据：<可观察结果>；验证方式：<命令>` | 持久目标 + 自动续跑；缺判据或验证方式会被拒绝，避免「一轮轮继续」 |
 | build | 关闭 plan 后的默认状态 | 直接改文件并构建验证 |
 
-## 十六个动作
+## 十七个动作
 
 | action | 做的事 |
 |---|---|
@@ -94,6 +94,7 @@ dsh plugin --profile desktop add file:<本目录>
 | `crash` | 读最新 jscrash / cppcrash / appfreeze，解出进程、原因、栈顶帧 |
 | `docs` | 离线文档：`config` 配目录、`search` 查关键词、`read` 读原文、`api` 查接口的 `@since` |
 | `db` | 看应用自己的 SQLite：`op=list` 列出沙箱里的 `.db`，`op=query` 跑一条只读语句（拒一切写操作） |
+| `trace` | 抓一段 `hitrace`：返回事件类型与进程排行，原始 `.ftrace` 留给 perfetto |
 
 多台设备有两种写法：`device="all"` 或 `device="a,b"` 设备列表；每台要做不同的事就用 `matrix`：
 
@@ -137,6 +138,16 @@ harmony run projectDir=<仓库>/samples/hello-app device=all
 
 这几个 op 只认设备上的绝对路径（`/data/...`），不认 Windows 盘符。路径不存在时会把 `ls`/`head` 自己的报错原样带出来，不会骗你说「是空的」。
 
+## 抓一段 trace
+
+卡顿、丢帧这类问题，先看那一秒到底在跑什么：
+
+    harmony trace seconds=2 categories="ace app sched"
+
+返回的是摘要（事件类型排行、进程排行、时间跨度、缓冲区有没有写满），原始文件落在 `%TEMP%/dsh-harmony-trace/` 下，可以直接拖进 perfetto 看火焰图——本插件不做火焰图，只保证「先看一眼」不用开 IDE。
+
+设备上如果 DevEco 的 Profiler 正开着，`hitrace` 会报 `OpenRecording failed, errorCode(1103)`；这个错误会原样转述，并提示关掉 Profiler 或重启设备（这台机器上重启是唯一能恢复的办法）。
+
 ## 看应用里的数据库
 
 调试时最常问「这条记录到底存成什么了」：
@@ -176,6 +187,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.37.0 | `trace`：抓一段 hitrace 并给摘要，原始文件交 perfetto（不做火焰图） |
 | 0.36.0 | `db`：列应用数据库、跑只读 SQL（拒写操作），真机验证 |
 | 0.35.0 | `file` 加 `ls` / `cat` / `du`：不拉文件也能看目录、读文本开头、算占用（只读，plan 下也可用） |
 | 0.34.0 | `logs` 默认返回摘要（级别计数、重复折叠、错误列表），回答"有没有新错误" |
