@@ -84,7 +84,7 @@ dsh plugin --profile desktop add file:<本目录>
 | `run` | build → 装包 →（HSP）补依赖 → `aa start` → 抓日志，五段结论；`matrix` 可按设备分工；plan 模式下拒绝 |
 | `devices` | 列出设备与机型、API、电量、温度、内存、存储 |
 | `deploy` | 装指定 `.hap`，可选拉起；支持多设备 |
-| `logs` | 限时抓 `hilog`；给 `bundleName` 就按 pid 只留这个应用；`filter` 用子串或 `/regex/flags` |
+| `logs` | 限时抓 `hilog`；给 `bundleName` 就按 pid 只留这个应用；`filter` 用子串或 `/regex/flags`；默认返回摘要（级别计数、重复折叠、错误列表），`view: "raw"` 看原文 |
 | `screenshot` | 抓设备截图到本地，返回路径与分辨率 |
 | `app` | `op=start/stop/clear/uninstall` 启停、清数据、卸载；`op=query` 查装没装、什么版本（只读） |
 | `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm；`fix: true` 时顺手修三类验得出的问题 |
@@ -130,6 +130,8 @@ harmony run projectDir=<仓库>/samples/hello-app device=all
 
 点侧边栏 **hilog**：选设备 → 灌入最近 120 行 → 实时追加。按级别、进程、关键字过滤都在浏览器里完成，不重连。
 
+对话里问"有没有报错"，不需要把 200 行灌进来：`logs` 默认给一份摘要——记录条数与时间范围、错误/警告计数、按次数排的错误前几条、出现最多的重复行（`×48` 这种）。大概十来行，先回答"坏没坏、坏在哪"，要看原文再加 `view: "raw"`。
+
 复现问题前点 **快照** 存基准，修完再存一份，点 **对比**：按行出现次数报「新增 / 消失 / 相同」。快照可以改名、导出 `.log`、单条删除，名字与内容存在浏览器本地。
 
 查接口先配一次文档目录（离线，不联网）：
@@ -165,6 +167,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 | 0.24.0 | 同一工程同时只跑一个构建 |
 | 0.23.0 | `ui op=wait` 等文字出现或消失 |
 | 0.22.0 | `sign` 核对签名配置与证书有效期 |
+| 0.34.0 | `logs` 默认返回摘要（级别计数、重复折叠、错误列表），并回答"有没有新错误" |
 | 0.33.0 | `sign` 收敛为 report / verify / rebuild：删掉设置页填密码与凭证库，密码回到工程配置 |
 | 0.32.0 | `sign op=sign/verify` 真签名 + 设置页填密码（只存本机） |
 | 0.32.2 | 适配 DSH 0.2.2：Fetch 路由改回 `ctx.effect` 注册，面板与设备浮层恢复 |

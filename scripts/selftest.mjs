@@ -23,6 +23,7 @@ import { absoluteMaterials, inspectCertificate, parseSigningConfigs, pickSignInp
 import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
 import { attributeFailure } from '../lib/attribute.js'
 import { formatMatrixRow, parseDeviceMatrix } from '../lib/devicematrix.js'
+import { formatLogSummary, parseLogLine, summarizeLogs } from '../lib/logsummary.js'
 import { formatAssertRow } from '../lib/uiassert.js'
 import {
   createHarmonyTools,
@@ -965,6 +966,58 @@ check('device badge checks the status code before parsing JSON', () => {
   assert.ok(start > -1, 'useDeviceList must exist')
   assert.ok(block.includes('if (!response.ok)'), 'the badge must check response.ok')
   assert.ok(block.includes('await response.json()'), 'and still read the body when the status is fine')
+})
+
+check('summarizeLogs folds repeats and keeps errors first', () => {
+  const lines = [
+    '11-17 20:00:00.100 100 100 I A03d00/JSAPP: boot',
+    '11-17 20:00:00.200 100 101 E A03d00/JSAPP: ServiceClient_request failed',
+    '  at com.tze.Foo(Entry.ets:12)',
+    '11-17 20:00:00.300 100 101 E A03d00/JSAPP: ServiceClient_request failed',
+    '11-17 20:00:00.400 200 200 I C015b0/NETSTACK: dns 0.073',
+    '11-17 20:00:00.500 200 200 I C015b0/NETSTACK: dns 0.073',
+    '11-17 20:00:00.600 200 200 I C015b0/NETSTACK: dns 0.073',
+  ]
+  const summary = summarizeLogs(lines)
+  assert.equal(summary.parsed, 6)
+  assert.equal(summary.ignored, 1)
+  assert.equal(summary.pids, 2)
+  assert.equal(summary.levels.E, 2)
+  assert.equal(summary.errors[0].count, 2)
+  assert.match(summary.errors[0].text, /ServiceClient_request failed/)
+  assert.equal(summary.duplicates[0].count, 3)
+  assert.equal(summary.firstAt, '11-17 20:00:00.100')
+  assert.equal(summary.lastAt, '11-17 20:00:00.600')
+
+  const text = formatLogSummary(summary)
+  assert.match(text, /6 条记录/)
+  assert.match(text, /2 个进程/)
+  assert.match(text, /错误（按次数）：/)
+  assert.match(text, /×2/)
+  assert.match(text, /×3/)
+  assert.ok(text.split('\n').length <= 12, 'the digest has to stay short')
+})
+
+check('formatLogSummary says so when the window is empty', () => {
+  assert.match(formatLogSummary(summarizeLogs([])), /一行日志都没有/)
+  assert.match(formatLogSummary(summarizeLogs(['not hilog at all'])), /都不像 hilog 记录/)
+})
+
+check('parseLogLine keeps level, tag and message', () => {
+  const record = parseLogLine('11-17 20:00:00.200 100 101 E A03d00/JSAPP: boom')
+  assert.equal(record.level, 'E')
+  assert.equal(record.pid, '100')
+  assert.equal(record.tag, 'A03d00/JSAPP')
+  assert.equal(record.message, 'boom')
+  assert.equal(parseLogLine('  at com.tze.Foo(Entry.ets:12)'), null)
+})
+
+check('logs exposes a view switch and summarises by default', () => {
+  const schema = tools[0].parameters.properties
+  assert.deepEqual([...schema.view.enum], ['summary', 'raw'])
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  assert.ok(source.includes("String(args.view ?? 'summary')"), 'summary is the default view')
+  assert.ok(source.includes('formatLogSummary(digest)'), 'the default branch renders the digest')
 })
 
 const failed = results.filter((result) => !result.ok)
