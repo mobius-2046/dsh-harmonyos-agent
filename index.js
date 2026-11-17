@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { createCodeRoutes } from './lib/coderoutes.js'
 import { createLogRoutes } from './lib/hilog.js'
 import { harmonyPreset } from './lib/preset.js'
 import { createHarmonyTools } from './lib/tools.js'
@@ -246,7 +247,7 @@ export function apply(ctx) {
     // gets the framework's plain-text 404, which is what turned into
     // `"not found" is not valid JSON` in the device badge. Wrapping the call in
     // `effect` is the shape shipped plugins use (`dsh-context` does the same).
-    for (const route of createLogRoutes()) {
+    for (const route of [...createLogRoutes(), ...createCodeRoutes()]) {
       try {
         webCtx.effect(() => register(route), `harmony: ${route.methods.join(',')} ${route.path}`)
       } catch (error) {

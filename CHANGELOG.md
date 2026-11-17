@@ -1,3 +1,10 @@
+## 0.38.0
+
+- 新增只读代码面板（左侧栏第二个图标）：`/api/harmony/code` 提供 `op=tree|file|find`，宿主侧 `lib/codewatch.js` 负责遍历、读文件（默认 200 KB 上限、只认源码与文本扩展名）、按名字搜声明；`lib/coderoutes.js` 只接受「看起来像 HarmonyOS 工程」的根目录，并拒绝越界路径。
+- 面板填一次工程目录记在浏览器本地；读不了二进制、跳过 `node_modules`/`build`/`.hvigor`；文件超过 3000 项时明确说「只列了前 3000 项」。
+- 真机/本机实测：`xcommander_7885` 遍历 3000 项（截断提示正确）、读 `EntryAbility.ets`、`find EntryAbility` 命中 `class EntryAbility` at line 112、`../../etc/passwd` 被拒、`C:/Windows` 报「不像 HarmonyOS 工程」。
+- 自测 87/87（新增 6 项：越界拒绝、遍历跳过依赖目录、读取上限与二进制拒绝、符号搜索、路由三态与根校验、客户端注册与宿主挂载）。
+
 ## 0.37.0
 
 - 新增 `trace` 动作：跑 `hitrace -t <seconds> -b 8192 -o <file> <categories>`，把文件拉回 `%TEMP%/dsh-harmony-trace/`，再用 `lib/trace.js` 解析文本 trace，输出「N 条事件 · 时长 · CPU 数 · 缓冲区是否写满」+ 事件类型排行 + 进程排行。

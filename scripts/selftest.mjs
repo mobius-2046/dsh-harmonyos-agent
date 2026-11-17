@@ -28,6 +28,8 @@ import { formatBytes, formatEntry, parseDuKb, parseLsListing } from '../lib/remo
 import { checkReadOnlySql, formatRows } from '../lib/db.js'
 import { formatTraceSummary, parseTraceLine, summarizeTrace } from '../lib/trace.js'
 import { formatAssertRow } from '../lib/uiassert.js'
+import { findSymbols, insideRoot, listTree, readSource } from '../lib/codewatch.js'
+import { handleCodeRequest } from '../lib/coderoutes.js'
 import {
   createHarmonyTools,
   parseFaultLog,
@@ -1128,6 +1130,86 @@ check('trace action takes a category list and refuses a busy tracing service lou
   assert.ok(source.includes('hitrace --stop_bgsrv'), 'the snapshot server is restarted once')
   assert.ok(source.includes('perfetto'), 'the raw file is handed over instead of a fake flame graph')
 })
+
+// Read-only code page: the guard matters most, because this route reads files.
+const codeFixture = mkdtempSync(join(tmpdir(), 'harmony-code-'))
+mkdirSync(join(codeFixture, 'AppScope'), { recursive: true })
+mkdirSync(join(codeFixture, 'entry/src/main/ets/pages'), { recursive: true })
+mkdirSync(join(codeFixture, 'node_modules/skipme'), { recursive: true })
+writeFileSync(join(codeFixture, 'build-profile.json5'), '{}\n')
+writeFileSync(join(codeFixture, 'entry/src/main/ets/pages/Index.ets'), [
+  'import { router } from "@kit.ArkUI"',
+  '',
+  '@Entry',
+  '@Component',
+  'struct Index {',
+  '  build() {}',
+  '}',
+  '',
+  'function tapCounter(): void {}',
+].join('\n'))
+writeFileSync(join(codeFixture, 'node_modules/skipme/hidden.ts'), 'struct Hidden {}\n')
+
+check('code page refuses paths outside the project root', () => {
+  assert.equal(insideRoot(codeFixture, '../escape.txt'), null)
+  assert.equal(insideRoot(codeFixture, '/etc/passwd'), null)
+  assert.ok(insideRoot(codeFixture, 'entry/src/main/ets/pages/Index.ets') !== null)
+})
+
+check('code tree lists project files and skips node_modules', () => {
+  const tree = listTree(codeFixture)
+  const paths = tree.entries.map((entry) => entry.path)
+  assert.ok(paths.includes('entry/src/main/ets/pages/Index.ets'))
+  assert.ok(!paths.some((item) => item.startsWith('node_modules')))
+  assert.ok(tree.entries.some((entry) => entry.path === 'entry' && entry.dir === true))
+})
+
+check('code file reader caps size and refuses binary extensions', () => {
+  const read = readSource(codeFixture, 'entry/src/main/ets/pages/Index.ets')
+  assert.equal(read.ok, true)
+  assert.ok(read.text.includes('struct Index'))
+  const capped = readSource(codeFixture, 'entry/src/main/ets/pages/Index.ets', { maxBytes: 10 })
+  assert.equal(capped.truncated, true)
+  assert.equal(capped.text.length, 10)
+  writeFileSync(join(codeFixture, 'app.bin'), Buffer.from([0, 1, 2]))
+  assert.equal(readSource(codeFixture, 'app.bin').ok, false)
+})
+
+check('code symbol search finds declarations by name', () => {
+  const found = findSymbols(codeFixture, 'index')
+  assert.ok(found.results.some((item) => item.name === 'Index' && item.kind === 'struct' && item.line === 5))
+  const fn = findSymbols(codeFixture, 'tapCounter')
+  assert.ok(fn.results.some((item) => item.kind === 'function' && item.name === 'tapCounter'))
+  assert.equal(findSymbols(codeFixture, '').results.length, 0)
+})
+
+check('code route answers tree/file/find and rejects non-project roots', () => {
+  const ask = (query) => handleCodeRequest(new URL(`http://x/api/harmony/code?${query}`))
+  const root = encodeURIComponent(codeFixture)
+  const tree = ask(`op=tree&root=${root}`)
+  assert.equal(tree.status, 200)
+  const file = ask(`op=file&root=${root}&path=${encodeURIComponent('entry/src/main/ets/pages/Index.ets')}`)
+  assert.equal(file.status, 200)
+  const find = ask(`op=find&root=${root}&q=Index`)
+  assert.equal(find.status, 200)
+  const outside = ask(`op=file&root=${root}&path=${encodeURIComponent('../../etc/passwd')}`)
+  assert.equal(outside.status, 404)
+  const notProject = ask(`op=tree&root=${encodeURIComponent(tmpdir())}`)
+  assert.equal(notProject.status, 400)
+})
+
+check('code page is registered as a panel and a page, and its route is hosted', () => {
+  const client = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  assert.ok(client.includes("key: 'harmony-code'"), 'the page is registered on the main slot')
+  assert.ok(client.includes("id: 'harmony-code'"), 'the sidebar entries point at it')
+  assert.ok(client.includes('CODES_API'), 'the page talks to the code route')
+  const index = readFileSync(new URL('../index.js', import.meta.url), 'utf8')
+  assert.ok(index.includes('createCodeRoutes()'), 'the host registers the code route')
+  assert.ok(index.includes('createLogRoutes(), ...createCodeRoutes()'), 'both route sets are mounted in one loop')
+})
+
+rmSync(codeFixture, { recursive: true, force: true })
+
 
 const failed = results.filter((result) => !result.ok)
 for (const result of results) {

@@ -76,7 +76,7 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 - 前置：`hdc shell run-as <bundle>` 或 root 能否读到 `/data/app/el2/100/database/<bundle>/…`。今晚先在你机器上验一次；不通就降级为「列出数据库文件并 pull 回来」。
 - 安全：`file:...?mode=ro` 只读打开；只允许 `SELECT` / `PRAGMA`，其余直接拒绝。
 
-### 11. 代码导航页（只读）
+### 11. 代码导航页（只读）✅ 0.38.0
 - 一条命令生成静态 HTML：文件树、ArkTS 符号索引、点开看原文，纯静态零依赖，浏览器打开。
 - 不做：编辑、跳转定义、重构——那是 IDE 的活，做一半更难用。
 

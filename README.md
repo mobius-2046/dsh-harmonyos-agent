@@ -128,6 +128,12 @@ harmony run projectDir=<仓库>/samples/hello-app device=all
 
 `build-profile.json5` 里的 `storePassword`/`keyPassword` 是 DevEco 的本地加密串，只有 DevEco 和 hvigor 解得上——仓库里放它没问题，本插件也从不尝试解密。
 
+## 打开代码面板
+
+左侧栏第二个图标是只读的工程浏览页：左边文件树，右边源码，顶上能按名字找 `struct` / `class` / `interface` / `function`。填一次工程目录会记住（存在浏览器本地），下次打开直接点「加载」。
+
+它只读源码和 `.json5` / `.md`，不写、不改、不监听文件变化；`node_modules`、`build`、`.hvigor` 这类目录会跳过。目的是「确认这段逻辑到底怎么写的」时不用切 IDE——要改代码还是回编辑器。
+
 ## 翻手机上的文件
 
 不用把文件拉回本机也能看：
@@ -187,6 +193,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.38.0 | 只读代码面板：文件树 + 源码 + 按名字找符号 |
 | 0.37.0 | `trace`：抓一段 hitrace 并给摘要，原始文件交 perfetto（不做火焰图） |
 | 0.36.0 | `db`：列应用数据库、跑只读 SQL（拒写操作），真机验证 |
 | 0.35.0 | `file` 加 `ls` / `cat` / `du`：不拉文件也能看目录、读文本开头、算占用（只读，plan 下也可用） |

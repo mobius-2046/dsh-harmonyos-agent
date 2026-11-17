@@ -6,6 +6,8 @@ window.__ModuleLoader__.load({
 
     /** The id shared by the sidebar entry and the main panel it opens. */
     const PANEL_ID = 'harmony-logs'
+    const CODES_API = '/api/harmony/code'
+    const CODE_ROOT_KEY = 'harmony.code.root'
     /** Dictionary namespace owned by this plugin. */
     const NS = 'harmonyLogs'
     /** Authenticated Host routes registered by this bundle's index.js. */
@@ -234,6 +236,16 @@ window.__ModuleLoader__.load({
       devicesDischarging: '放电中',
       devicesFull: '已充满',
       devicesFoot: '不带 device 参数时默认使用第一台',
+      codePanel: '代码',
+      codeRoot: '工程目录',
+      codeLoad: '加载',
+      codeHint: '填工程根目录后点「加载」：左边是文件树，右边是源码。只读，改不了。',
+      codeEmpty: '没有可选的文件',
+      codeTooLarge: '文件太大，只显示前一部分',
+      codeTruncated: '文件太多，只列出前 3000 项',
+      codeFind: '找符号',
+      codeFindHint: '输入类名或函数名，回车搜索',
+      codeNoSymbols: '没有匹配的声明',
     }
 
     const en = {
@@ -337,6 +349,16 @@ window.__ModuleLoader__.load({
       devicesDischarging: 'discharging',
       devicesFull: 'full',
       devicesFoot: 'The first device is used when device is omitted',
+      codePanel: 'Code',
+      codeRoot: 'Project root',
+      codeLoad: 'Load',
+      codeHint: 'Point at a project root and press Load: files on the left, source on the right. Read-only.',
+      codeEmpty: 'No files to show',
+      codeTooLarge: 'File is large — showing the first part only',
+      codeTruncated: 'Too many files — listing the first 3000 entries',
+      codeFind: 'Find symbol',
+      codeFindHint: 'Type a class or function name, then Enter',
+      codeNoSymbols: 'No matching declaration',
     }
 
     const DICTIONARIES = { zh, en }
@@ -511,6 +533,24 @@ window.__ModuleLoader__.load({
       ".hd-hint{font-size:11px;line-height:17px;opacity:.85}",
       ".hd-foot{padding:7px 12px;border-top:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);font-size:10.5px}",
       ".hd-error{color:var(--dsw-alias-state-error-primary)}",
+      ".cd-wrap{display:flex;flex-direction:column;height:100%;min-height:0;font-size:12px}",
+      ".cd-bar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--dsw-alias-border-l1);flex-wrap:wrap}",
+      ".cd-input{flex:1 1 260px;min-width:180px;height:26px;padding:0 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:6px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:11.5px}",
+      ".cd-btn{height:26px;padding:0 10px;border:1px solid var(--dsw-alias-border-l1);border-radius:6px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-size:11.5px;cursor:pointer}",
+      ".cd-body{flex:1;display:flex;min-height:0}",
+      ".cd-tree{width:38%;min-width:200px;max-width:420px;overflow:auto;border-right:1px solid var(--dsw-alias-border-l1);padding:4px 0}",
+      ".cd-item{display:block;width:100%;text-align:left;border:0;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:11.5px;line-height:20px;padding:0 10px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+      ".cd-item:hover{background:var(--dsw-alias-bg-layer-2)}",
+      ".cd-item[data-dir=true]{color:var(--dsw-alias-label-secondary);cursor:default}",
+      ".cd-item[data-active=true]{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-brand-primary)}",
+      ".cd-view{flex:1;display:flex;flex-direction:column;min-width:0}",
+      ".cd-path{padding:5px 10px;border-bottom:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}",
+      ".cd-code{flex:1;margin:0;padding:10px 12px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;line-height:18px;color:var(--dsw-alias-label-primary);white-space:pre}",
+      ".cd-hint{padding:16px;color:var(--dsw-alias-label-secondary);line-height:20px}",
+      ".cd-error{padding:10px 12px;color:var(--dsw-alias-state-error-primary);line-height:19px}",
+      ".cd-sym{border-bottom:1px solid var(--dsw-alias-border-l1);max-height:132px;overflow:auto}",
+      ".cd-symrow{display:flex;gap:8px;padding:2px 10px;font-size:11px;cursor:pointer;color:var(--dsw-alias-label-primary)}",
+      ".cd-symrow:hover{background:var(--dsw-alias-bg-layer-2)}",
     ].join('')
 
     if (typeof document !== 'undefined' && document.getElementById(STYLE_ID) === null) {
@@ -567,6 +607,158 @@ window.__ModuleLoader__.load({
      * @param {object} props slot props; `t` is bound to this plugin's namespace.
      * @returns {object} page element.
      */
+    /**
+     * Read-only project browser: file tree, one file at a time, symbol search.
+     * Answers "what does this handler actually do" without opening the IDE —
+     * deliberately no editing, no saving, no watching.
+     * @param {object} props slot props carrying the translator.
+     * @returns {object} page element.
+     */
+    function CodePage(props) {
+      const t = React.useMemo(() => translator(props.t), [props.t])
+      const [root, setRoot] = React.useState(() => {
+        try {
+          return localStorage.getItem(CODE_ROOT_KEY) ?? ''
+        } catch {
+          return ''
+        }
+      })
+      const [status, setStatus] = React.useState('idle')
+      const [error, setError] = React.useState('')
+      const [entries, setEntries] = React.useState([])
+      const [truncated, setTruncated] = React.useState(false)
+      const [openPath, setOpenPath] = React.useState('')
+      const [file, setFile] = React.useState(null)
+      const [query, setQuery] = React.useState('')
+      const [symbols, setSymbols] = React.useState([])
+      const [symbolState, setSymbolState] = React.useState('idle')
+
+      const load = React.useCallback(async () => {
+        const trimmed = root.trim()
+        if (trimmed === '') return
+        try {
+          localStorage.setItem(CODE_ROOT_KEY, trimmed)
+        } catch {
+          // private mode: forgetting the path is fine
+        }
+        setStatus('loading')
+        setError('')
+        try {
+          const response = await fetch(`${CODES_API}?op=tree&root=${encodeURIComponent(trimmed)}`)
+          const body = await response.json()
+          if (!response.ok || body.ok !== true) {
+            setStatus('error')
+            setError(body.error ?? `HTTP ${response.status}`)
+            return
+          }
+          setEntries(Array.isArray(body.entries) ? body.entries : [])
+          setTruncated(body.truncated === true)
+          setStatus('ready')
+        } catch (failure) {
+          setStatus('error')
+          setError(failure instanceof Error ? failure.message : String(failure))
+        }
+      }, [root])
+
+      const openFile = React.useCallback(async (target) => {
+        setOpenPath(target)
+        setFile(null)
+        try {
+          const response = await fetch(`${CODES_API}?op=file&root=${encodeURIComponent(root.trim())}&path=${encodeURIComponent(target)}`)
+          const body = await response.json()
+          setFile(body.ok === true ? body : { ok: false, error: body.error ?? `HTTP ${response.status}` })
+        } catch (failure) {
+          setFile({ ok: false, error: failure instanceof Error ? failure.message : String(failure) })
+        }
+      }, [root])
+
+      const find = React.useCallback(async () => {
+        const needle = query.trim()
+        if (needle === '') {
+          setSymbols([])
+          return
+        }
+        setSymbolState('loading')
+        try {
+          const response = await fetch(`${CODES_API}?op=find&root=${encodeURIComponent(root.trim())}&q=${encodeURIComponent(needle)}`)
+          const body = await response.json()
+          if (body.ok !== true) {
+            setSymbolState('error')
+            return
+          }
+          setSymbols(Array.isArray(body.results) ? body.results : [])
+          setSymbolState('ready')
+        } catch {
+          setSymbolState('error')
+        }
+      }, [query, root])
+
+      const depthOf = (entryPath) => entryPath.split('/').length - 1
+
+      return h('div', { className: 'cd-wrap' },
+        h('div', { className: 'cd-bar' },
+          h('input', {
+            className: 'cd-input',
+            value: root,
+            placeholder: t('codeRoot'),
+            spellCheck: false,
+            onChange: (event) => setRoot(event.target.value),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter') load()
+            },
+          }),
+          h('button', { className: 'cd-btn', type: 'button', onClick: load }, t('codeLoad')),
+          h('input', {
+            className: 'cd-input',
+            value: query,
+            placeholder: t('codeFindHint'),
+            spellCheck: false,
+            onChange: (event) => setQuery(event.target.value),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter') find()
+            },
+          }),
+          h('button', { className: 'cd-btn', type: 'button', onClick: find }, t('codeFind')),
+        ),
+        status === 'idle' ? h('div', { className: 'cd-hint' }, t('codeHint')) : null,
+        status === 'loading' ? h('div', { className: 'cd-hint' }, '…') : null,
+        status === 'error' ? h('div', { className: 'cd-error' }, error) : null,
+        symbols.length > 0
+          ? h('div', { className: 'cd-sym' }, symbols.map((item) => h('div', {
+            key: `${item.file}:${item.line}:${item.name}`,
+            className: 'cd-symrow',
+            onClick: () => openFile(item.file),
+          }, h('span', null, item.kind), h('span', null, item.name), h('span', { className: 'cd-path' }, `${item.file}:${item.line}`))))
+          : symbolState === 'ready' ? h('div', { className: 'cd-hint' }, t('codeNoSymbols')) : null,
+        status === 'ready'
+          ? h('div', { className: 'cd-body' },
+            h('div', { className: 'cd-tree' },
+              truncated ? h('div', { className: 'cd-hint' }, t('codeTruncated')) : null,
+              entries.length === 0
+                ? h('div', { className: 'cd-hint' }, t('codeEmpty'))
+                : entries.map((entry) => h('button', {
+                  key: entry.path,
+                  type: 'button',
+                  className: 'cd-item',
+                  'data-dir': entry.dir ? 'true' : 'false',
+                  'data-active': openPath === entry.path ? 'true' : 'false',
+                  style: { paddingLeft: `${10 + depthOf(entry.path) * 12}px` },
+                  onClick: () => {
+                    if (!entry.dir) openFile(entry.path)
+                  },
+                }, entry.dir ? `${entry.name}/` : entry.name))),
+            h('div', { className: 'cd-view' },
+              openPath === '' ? h('div', { className: 'cd-hint' }, t('codeHint')) : null,
+              openPath === '' ? null : h('div', { className: 'cd-path' }, openPath),
+              file === null || openPath === '' ? null : file.ok === true
+                ? h('pre', { className: 'cd-code' }, file.truncated ? `${file.text}\n\n… (${t('codeTooLarge')})` : file.text)
+                : h('div', { className: 'cd-error' }, file.error),
+            ),
+          )
+          : null,
+      )
+    }
+
     function LogsPage(props) {
       const t = React.useMemo(() => translator(props.t), [props.t])
       const tRef = React.useRef(t)
@@ -1705,6 +1897,30 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /**
+     * Sidebar icon for the code page: angle brackets.
+     * @param {{ size?: number }} props icon size.
+     * @returns {object} svg element.
+     */
+    function CodeIcon(props) {
+      const size = typeof props.size === 'number' ? props.size : 16
+      return h('svg', {
+        width: size,
+        height: size,
+        viewBox: '0 0 16 16',
+        fill: 'none',
+        'aria-hidden': 'true',
+        focusable: 'false',
+      },
+      h('path', {
+        d: 'M5.6 4.2 2.8 8l2.8 3.8M10.4 4.2 13.2 8l-2.8 3.8',
+        stroke: 'currentColor',
+        strokeWidth: 1.25,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+      }))
+    }
+
     return {
       inject: ['slots', 'locale'],
       // Plain-JS render internals exercised by harmony-logs-selftest.mjs; the
@@ -1720,6 +1936,19 @@ window.__ModuleLoader__.load({
           locale: NS,
         }, LogsPage))
 
+        ctx.slots.inject('main', () => ctx.slots.register({
+          name: 'main',
+          key: 'harmony-code',
+          locale: NS,
+        }, CodePage))
+
+        ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+          name: 'sidebar.panellist',
+          id: 'harmony-code',
+          order: 30,
+          locale: NS,
+          label: () => t('codePanel'),
+        }, CodeIcon))
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist',
           id: PANEL_ID,
