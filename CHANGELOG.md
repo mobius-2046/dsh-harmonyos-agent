@@ -1,3 +1,9 @@
+## 0.36.0
+
+- 新增 `db` 动作：`op=list` 列出应用沙箱里的 SQLite（默认按 `/data/app/el2/*/database/<bundle>/.../*.db` 找），`op=query` 把指定的库（连同 `-wal`/`-shm`）拉到临时目录，用 `node:sqlite` 只读打开再跑一条语句。
+- 只读是强制的：`checkReadOnlySql` 只放行 SELECT / WITH / PRAGMA / EXPLAIN，写操作关键字（包括子查询里的）一律拒绝；结果按列对齐输出，宽字段裁到 60 字符，最多 50 行并标注「只显示前 50 行」。
+- 真机实测（root 设备）：列出一个应用的 10 个库、查 `sqlite_master` 表名、`select count(*)`、`delete` 被拒；`自测` 78/78。
+
 ## 0.35.0
 
 - `file` 多了三个只读动作：`op=ls` 列目录（目录在前、带大小与修改时间、名字含空格也不串列）、`op=cat` 读文本文件开头（默认最多 64 KB，用 `seconds` 改）、`op=du` 算目录占用。三个都不需要把文件拉回本机，也不会在 plan 模式下被拦。

@@ -74,7 +74,7 @@ dsh plugin --profile desktop add file:<本目录>
 | goal | `/goal <目标>；完成判据：<可观察结果>；验证方式：<命令>` | 持久目标 + 自动续跑；缺判据或验证方式会被拒绝，避免「一轮轮继续」 |
 | build | 关闭 plan 后的默认状态 | 直接改文件并构建验证 |
 
-## 十五个动作
+## 十六个动作
 
 | action | 做的事 |
 |---|---|
@@ -93,6 +93,7 @@ dsh plugin --profile desktop add file:<本目录>
 | `file` | `op=pull` 拉回、`op=send` 推上去；`op=ls` 列目录、`op=cat` 读文本开头、`op=du` 算目录大小（这三个只读，plan 模式下也能用） |
 | `crash` | 读最新 jscrash / cppcrash / appfreeze，解出进程、原因、栈顶帧 |
 | `docs` | 离线文档：`config` 配目录、`search` 查关键词、`read` 读原文、`api` 查接口的 `@since` |
+| `db` | 看应用自己的 SQLite：`op=list` 列出沙箱里的 `.db`，`op=query` 跑一条只读语句（拒一切写操作） |
 
 多台设备有两种写法：`device="all"` 或 `device="a,b"` 设备列表；每台要做不同的事就用 `matrix`：
 
@@ -136,6 +137,16 @@ harmony run projectDir=<仓库>/samples/hello-app device=all
 
 这几个 op 只认设备上的绝对路径（`/data/...`），不认 Windows 盘符。路径不存在时会把 `ls`/`head` 自己的报错原样带出来，不会骗你说「是空的」。
 
+## 看应用里的数据库
+
+调试时最常问「这条记录到底存成什么了」：
+
+    harmony db op=list bundleName=com.example.app
+    harmony db op=query bundleName=com.example.app remote=/data/app/el2/100/database/com.example.app/entry/rdb/USER.db \
+      sql="select * from USER limit 5"
+
+数据库先从设备拉到 `%TEMP%` 再打开（带 `-wal`/`-shm`，读到的是最新状态），打开方式是只读，语句只放行 `SELECT` / `WITH` / `PRAGMA` / `EXPLAIN`——写操作会被直接拒绝，不是靠自觉。应用沙箱里的库通常要 root 设备（`hdc shell id` 看 uid）。
+
 ## 看日志与查文档
 
 点侧边栏 **hilog**：选设备 → 灌入最近 120 行 → 实时追加。按级别、进程、关键字过滤都在浏览器里完成，不重连。
@@ -165,6 +176,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.36.0 | `db`：列应用数据库、跑只读 SQL（拒写操作），真机验证 |
 | 0.35.0 | `file` 加 `ls` / `cat` / `du`：不拉文件也能看目录、读文本开头、算占用（只读，plan 下也可用） |
 | 0.34.0 | `logs` 默认返回摘要（级别计数、重复折叠、错误列表），回答"有没有新错误" |
 | 0.33.0 | `sign` 收敛为 report / verify / rebuild：删掉设置页填密码与凭证库，密码回到工程配置 |

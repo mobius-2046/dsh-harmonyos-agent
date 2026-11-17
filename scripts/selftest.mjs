@@ -25,6 +25,7 @@ import { attributeFailure } from '../lib/attribute.js'
 import { formatMatrixRow, parseDeviceMatrix } from '../lib/devicematrix.js'
 import { formatLogSummary, parseLogLine, summarizeLogs } from '../lib/logsummary.js'
 import { formatBytes, formatEntry, parseDuKb, parseLsListing } from '../lib/remotefs.js'
+import { checkReadOnlySql, formatRows } from '../lib/db.js'
 import { formatAssertRow } from '../lib/uiassert.js'
 import {
   createHarmonyTools,
@@ -91,7 +92,7 @@ check('parameters is an object-root JSON Schema with action required', () => {
 })
 
 check('action enum covers every documented action', () => {
-  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'crash', 'deploy', 'deps', 'devices', 'docs', 'doctor', 'file', 'logs', 'run', 'screenshot', 'sign', 'ui'])
+  assert.deepEqual([...tool.parameters.properties.action.enum].sort(), ['app', 'build', 'compile', 'crash', 'db', 'deploy', 'deps', 'devices', 'docs', 'doctor', 'file', 'logs', 'run', 'screenshot', 'sign', 'ui'])
 })
 
 check('op covers the four app lifecycle operations and the five ui operations', () => {
@@ -1054,6 +1055,37 @@ check('file action exposes the read-only ops and still guards send', () => {
   const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
   assert.ok(source.includes("if (op === 'ls' || op === 'cat' || op === 'du')"), 'the three ops share one branch')
   assert.ok(/next === 'send'/.test(source) || source.includes("op === 'send'"), 'send keeps its own permission shape')
+})
+
+check('checkReadOnlySql allows reads and refuses anything that writes', () => {
+  for (const sql of ['select * from USER', '  WITH x AS (select 1) select * from x', 'pragma table_info(USER)', 'EXPLAIN select 1']) {
+    assert.equal(checkReadOnlySql(sql).ok, true, sql)
+  }
+  for (const sql of ['', 'delete from USER', 'update USER set a=1', 'drop table USER', "attach database '/tmp/x' as y"]) {
+    assert.equal(checkReadOnlySql(sql).ok, false, sql)
+  }
+  assert.equal(checkReadOnlySql("select * from USER where note = 'delete me'").ok, true, 'quoted text is not a write')
+})
+
+check('formatRows clips wide cells and marks truncation', () => {
+  const rows = Array.from({ length: 3 }, (_, index) => ({ id: index, blob: 'x'.repeat(80) }))
+  const table = formatRows(rows, { maxRows: 2, maxCell: 20 })
+  assert.equal(table.truncated, true)
+  assert.equal(table.shown, 2)
+  assert.match(table.lines[0], /id/)
+  assert.ok(table.lines[2].includes('…'), 'long values are clipped')
+  assert.deepEqual(formatRows([]).lines, ['（0 行）'])
+})
+
+check('db action lists and queries with a sql parameter', () => {
+  const schema = tools[0].parameters.properties
+  assert.ok(schema.action.enum.includes('db'), 'db is an action')
+  assert.ok(schema.op.enum.includes('list'), 'op=list exists')
+  assert.equal(schema.sql.type, 'string')
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  const dbSource = readFileSync(new URL('../lib/db.js', import.meta.url), 'utf8')
+  assert.ok(dbSource.includes('readOnly: true'), 'sqlite is opened read-only')
+  assert.ok(source.includes("import { checkReadOnlySql, formatRows, queryDatabase } from './db.js'"))
 })
 
 const failed = results.filter((result) => !result.ok)

@@ -71,7 +71,7 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 - `file` 已有 `pull`/`send`；补 `op=ls` / `op=cat` / `op=du`（走 `hdc shell`，只读，plan 模式放行）。
 - 验收：`ls /data/local/tmp`、`cat` 一个小文本、`du -sh` 一个目录都能出结果；不存在的路径给出 `[Fail]` 原文而不是「没有可用设备」这类误导。
 
-### 10. 数据库查询（先验可达性）
+### 10. 数据库查询 ✅ 0.36.0（先验可达性）
 - 目标：`db tables | schema | query`，pull 出 RDB 后用宿主自带 Python 的 `sqlite3` 只读打开。
 - 前置：`hdc shell run-as <bundle>` 或 root 能否读到 `/data/app/el2/100/database/<bundle>/…`。今晚先在你机器上验一次；不通就降级为「列出数据库文件并 pull 回来」。
 - 安全：`file:...?mode=ro` 只读打开；只允许 `SELECT` / `PRAGMA`，其余直接拒绝。
