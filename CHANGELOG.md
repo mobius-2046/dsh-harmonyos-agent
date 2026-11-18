@@ -1,3 +1,9 @@
+## 0.39.1
+
+- 缓存策略改成「默认共用」：`isolateHome` 不传时直接用 `~/.hvigor`，让 DevEco Studio 暖着的缓存能复用；只有 `~/.hvigor` 真的不可写（沙箱/只读 profile）才退回隔离目录。
+- 判断依据从「IDE 是否在跑」换成「目录是否可写」——共用只是在并发写时偶尔多一次重建，而隔离每次都要冷启动，实测同一工程 70–77 秒 vs 87 秒。
+- 探测用真实写入（`~/.hvigor` 下建一个探针文件再删）而不是 `access()`，因为 Windows 目录 ACL 可能报告可写却拒绝创建文件。
+- `data.isolation` 现在是 `{isolated, reason}`；构建结果那行改成「hvigor 缓存：共用/隔离（原因）」。自测 89/89。
 ## 0.39.0
 
 - 构建缓存策略改成「看情况」：以前默认隔离 hvigor home（`HVIGOR_USER_HOME` 指到临时目录），好处是不碰你真实的 `~/.hvigor`，代价是 DevEco Studio 刚暖好的 `project_caches` 用不上——同一个 23 个模块的工程，隔离时 87 秒、共用时 70 秒，冷启动还要多付 40 秒。

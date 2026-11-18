@@ -130,12 +130,11 @@ harmony run projectDir=<仓库>/samples/hello-app device=all
 
 ## 构建为什么有时快、有时慢
 
-`harmony build` 默认按环境决定 hvigor 的缓存目录：
+`harmony build` 默认**共用** `~/.hvigor`：DevEco Studio 通常也开着，它把那套缓存暖着，复用就是同一个 23 模块工程 70 秒、而隔离要 87 秒（隔离目录是冷的，第一次多付 40 秒）。
 
-- **DevEco Studio 在跑** → 隔离（`HVIGOR_USER_HOME` 指到临时目录）。两边各自写自己的 `.hvigor`，不会为了同一份 `build.log` 打架，也不会互相把 `project_caches` 作废。
-- **没在跑** → 共用 `~/.hvigor`。同一个 23 模块工程的实测：共用 70 秒，隔离 87 秒；隔离目录是冷的，第一次还要多付 40 秒。
+只有当 `~/.hvigor` 不可写（沙箱会话、只读 profile）时才自动退回隔离目录（`HVIGOR_USER_HOME` 指到临时目录）。要看这次用了哪种，构建结果里有一行 `hvigor 缓存：共用/隔离（原因）`；想固定一种就显式传 `isolateHome: true` 或 `false`。
 
-要固定其中一种，就显式传 `isolateHome: true` 或 `false`。构建结果里有一行 `hvigor 缓存：…` 告诉你这次用了哪种、为什么——同样的改动两次构建差几十秒时，先看这一行。
+代价说清楚：两边同时写同一份缓存时，偶尔会互相作废，表现为某次构建突然慢一倍——不会丢代码，也不改你的工程。
 
 ## 打开代码面板
 

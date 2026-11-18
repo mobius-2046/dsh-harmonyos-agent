@@ -1214,18 +1214,18 @@ rmSync(codeFixture, { recursive: true, force: true })
 
 // Cache strategy: isolating while the IDE is open avoids a cache fight, sharing
 // while it is closed is ~40 s faster on a multi-module project.
-check('isolation policy isolates only when DevEco Studio is running', () => {
-  const withIde = resolveHvigorIsolation({ devEcoProcesses: 3, canIsolate: true })
-  assert.equal(withIde.isolated, true)
-  assert.ok(withIde.reason.includes('3 个进程'), 'the count is reported')
-  const withoutIde = resolveHvigorIsolation({ devEcoProcesses: 0, canIsolate: true })
-  assert.equal(withoutIde.isolated, false)
-  assert.ok(withoutIde.reason.includes('共用'), 'the faster path is named')
-  const noWrapper = resolveHvigorIsolation({ devEcoProcesses: 0, canIsolate: false })
+check('isolation policy shares the warm cache and isolates only when it must', () => {
+  const shared = resolveHvigorIsolation({ writable: true, canIsolate: true })
+  assert.equal(shared.isolated, false)
+  assert.ok(shared.reason.includes('缓存'), 'the faster path is named')
+  const readOnly = resolveHvigorIsolation({ writable: false, canIsolate: true })
+  assert.equal(readOnly.isolated, true)
+  assert.ok(readOnly.reason.includes('不可写'), 'the reason names the actual blocker')
+  const noWrapper = resolveHvigorIsolation({ writable: false, canIsolate: false })
   assert.equal(noWrapper.isolated, false)
   assert.ok(noWrapper.reason.includes('wrapper'))
-  assert.equal(resolveHvigorIsolation({ requested: true, devEcoProcesses: 0, canIsolate: false }).isolated, true)
-  assert.equal(resolveHvigorIsolation({ requested: false, devEcoProcesses: 5, canIsolate: true }).isolated, false)
+  assert.equal(resolveHvigorIsolation({ requested: true, writable: true, canIsolate: true }).isolated, true)
+  assert.equal(resolveHvigorIsolation({ requested: false, writable: false, canIsolate: true }).isolated, false)
 })
 
 check('build reports which cache strategy ran', () => {

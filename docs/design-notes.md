@@ -1,14 +1,13 @@
-## 隔离 hvigor home 不是一个免费选项
+## 缓存策略：共用优先，因为快的那一份是 IDE 暖好的
 
-隔离解决的是「真实 `~/.hvigor` 可能不可写」和「两边的 `project_caches` 互相作废」，但它让缓存从热变冷：同一个 23 模块工程，共用 70 秒、隔离 87 秒，冷启动 127 秒。
+隔离的 `HVIGOR_USER_HOME` 解决「真实 `~/.hvigor` 可能不可写」，但它让缓存从热变冷：同一工程共用 70–77 秒、隔离 87 秒、冷启动 127 秒。
 
-所以策略是按需隔离：用 `tasklist /FI "IMAGENAME eq devecostudio64.exe" /NH` 数进程（4 秒超时，非 Windows 直接 0），有就隔离、没有就共用。判断放在 `lib/locate.js` 的 `resolveHvigorIsolation()`，副作用（进程探测）可注入，所以自测能覆盖四个分支。
+所以默认共用，只在写不进去时才隔离。判断放在 `lib/locate.js` 的 `canWriteHvigorHome()` + `resolveHvigorIsolation()`，两点值得记住：
 
-写这个功能时踩到的两个坑：一是两处 `toolchainEnv(...)` 调用点都要改，只改一处会出现「summary 说共用、实际隔离」；二是 `tasklist` 的输出在中文系统上仍以进程名开头，正则要按行首匹配并容忍空前缀行（输出「信息: 没有运行的任务匹配指定标准。」时返回 0）。
+1. 探测必须真的写一个文件再删。Windows 上 `access(W_OK)` 对目录会说「可写」，而 ACL 仍然拒绝创建文件。
+2. 之前的版本用 `tasklist` 数 `devecostudio64.exe` 决定隔不隔离，方向反了：IDE 在跑恰恰是缓存最值钱的时候。
 
-# 设计笔记（给维护者）
-
-README 讲怎么用，这份讲为什么这么写、哪里会咬人。每条都来自真机或真实宿主的实测，`scripts/selftest.mjs` 里有对应回归检查。
+并发写同一份缓存是允许的：`~/.hvigor` 里没有跨进程锁，两个构建可能互相作废缓存，最坏结果是某一轮重建，而不是损坏工程。
 
 ## Windows 上的 9 个坑
 

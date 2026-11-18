@@ -60,8 +60,8 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 
 ## 构建速度（2026-11-18）
 
-- 已交付 0.39.0：`isolateHome` 默认 auto——DevEco 在跑才隔离。实测 `build module=entry` 73s、共用缓存 70s、隔离 87s、冷启动 127s。
-- 还可做：把 `assembleHap` 换成按模块增量（`-p module=entry@default` 已是增量入口）；`compile` 已 45s 可用作快速反馈。
+- 已交付 0.39.1：默认共用 `~/.hvigor`，只有不可写才隔离。实测 `build module=entry` 77s（共用）/ 87s（隔离）/ 127s（隔离+冷启动）、`compile` 45s。
+- 还可做：`hsp:true` 的全量 HSP 重建（4 分半）改成只在 shared 模块变更时触发；把 `assembleHap` 的模块范围收窄。
 
 ## 减少打开 DevEco 的次数（用户 2026-11-16 提出，按此顺序做）
 
