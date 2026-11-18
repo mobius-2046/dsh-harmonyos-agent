@@ -29,6 +29,7 @@ import { checkReadOnlySql, formatRows } from '../lib/db.js'
 import { formatTraceSummary, parseTraceLine, summarizeTrace } from '../lib/trace.js'
 import { formatAssertRow } from '../lib/uiassert.js'
 import { findSymbols, insideRoot, listTree, readSource } from '../lib/codewatch.js'
+import { resolveHvigorIsolation } from '../lib/locate.js'
 import { handleCodeRequest } from '../lib/coderoutes.js'
 import {
   createHarmonyTools,
@@ -1210,6 +1211,29 @@ check('code page is registered as a panel and a page, and its route is hosted', 
 
 rmSync(codeFixture, { recursive: true, force: true })
 
+
+// Cache strategy: isolating while the IDE is open avoids a cache fight, sharing
+// while it is closed is ~40 s faster on a multi-module project.
+check('isolation policy isolates only when DevEco Studio is running', () => {
+  const withIde = resolveHvigorIsolation({ devEcoProcesses: 3, canIsolate: true })
+  assert.equal(withIde.isolated, true)
+  assert.ok(withIde.reason.includes('3 个进程'), 'the count is reported')
+  const withoutIde = resolveHvigorIsolation({ devEcoProcesses: 0, canIsolate: true })
+  assert.equal(withoutIde.isolated, false)
+  assert.ok(withoutIde.reason.includes('共用'), 'the faster path is named')
+  const noWrapper = resolveHvigorIsolation({ devEcoProcesses: 0, canIsolate: false })
+  assert.equal(noWrapper.isolated, false)
+  assert.ok(noWrapper.reason.includes('wrapper'))
+  assert.equal(resolveHvigorIsolation({ requested: true, devEcoProcesses: 0, canIsolate: false }).isolated, true)
+  assert.equal(resolveHvigorIsolation({ requested: false, devEcoProcesses: 5, canIsolate: true }).isolated, false)
+})
+
+check('build reports which cache strategy ran', () => {
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  assert.ok(source.includes('hvigor 缓存：'), 'the summary names the strategy')
+  assert.ok(source.includes('resolveHvigorIsolation({ requested: args.isolateHome })'), 'the flag reaches the policy')
+  assert.ok(source.includes('data.isolation') || source.includes('isolation: { isolated:'), 'the decision is in data')
+})
 
 const failed = results.filter((result) => !result.ok)
 for (const result of results) {

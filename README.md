@@ -128,6 +128,15 @@ harmony run projectDir=<仓库>/samples/hello-app device=all
 
 `build-profile.json5` 里的 `storePassword`/`keyPassword` 是 DevEco 的本地加密串，只有 DevEco 和 hvigor 解得上——仓库里放它没问题，本插件也从不尝试解密。
 
+## 构建为什么有时快、有时慢
+
+`harmony build` 默认按环境决定 hvigor 的缓存目录：
+
+- **DevEco Studio 在跑** → 隔离（`HVIGOR_USER_HOME` 指到临时目录）。两边各自写自己的 `.hvigor`，不会为了同一份 `build.log` 打架，也不会互相把 `project_caches` 作废。
+- **没在跑** → 共用 `~/.hvigor`。同一个 23 模块工程的实测：共用 70 秒，隔离 87 秒；隔离目录是冷的，第一次还要多付 40 秒。
+
+要固定其中一种，就显式传 `isolateHome: true` 或 `false`。构建结果里有一行 `hvigor 缓存：…` 告诉你这次用了哪种、为什么——同样的改动两次构建差几十秒时，先看这一行。
+
 ## 打开代码面板
 
 左侧栏第二个图标是只读的工程浏览页：左边文件树，右边源码，顶上能按名字找 `struct` / `class` / `interface` / `function`。填一次工程目录会记住（存在浏览器本地），下次打开直接点「加载」。

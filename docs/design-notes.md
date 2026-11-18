@@ -1,3 +1,11 @@
+## 隔离 hvigor home 不是一个免费选项
+
+隔离解决的是「真实 `~/.hvigor` 可能不可写」和「两边的 `project_caches` 互相作废」，但它让缓存从热变冷：同一个 23 模块工程，共用 70 秒、隔离 87 秒，冷启动 127 秒。
+
+所以策略是按需隔离：用 `tasklist /FI "IMAGENAME eq devecostudio64.exe" /NH` 数进程（4 秒超时，非 Windows 直接 0），有就隔离、没有就共用。判断放在 `lib/locate.js` 的 `resolveHvigorIsolation()`，副作用（进程探测）可注入，所以自测能覆盖四个分支。
+
+写这个功能时踩到的两个坑：一是两处 `toolchainEnv(...)` 调用点都要改，只改一处会出现「summary 说共用、实际隔离」；二是 `tasklist` 的输出在中文系统上仍以进程名开头，正则要按行首匹配并容忍空前缀行（输出「信息: 没有运行的任务匹配指定标准。」时返回 0）。
+
 # 设计笔记（给维护者）
 
 README 讲怎么用，这份讲为什么这么写、哪里会咬人。每条都来自真机或真实宿主的实测，`scripts/selftest.mjs` 里有对应回归检查。

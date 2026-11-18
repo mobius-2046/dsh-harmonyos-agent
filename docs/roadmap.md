@@ -58,6 +58,11 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 已做：`run` 的 `matrix` 按设备分配动作（`"id=run;id=install;id=uninstall"`）；编译一次、按设备并行，结果是一张设备 × 动作的表；写法错在编译前返回，未连接的 id 直接列出当前在线设备。
 未做：把 `ui assert` 的期望也按设备写进 matrix（同一用例在不同机型上跑不同断言）。
 
+## 构建速度（2026-11-18）
+
+- 已交付 0.39.0：`isolateHome` 默认 auto——DevEco 在跑才隔离。实测 `build module=entry` 73s、共用缓存 70s、隔离 87s、冷启动 127s。
+- 还可做：把 `assembleHap` 换成按模块增量（`-p module=entry@default` 已是增量入口）；`compile` 已 45s 可用作快速反馈。
+
 ## 减少打开 DevEco 的次数（用户 2026-11-16 提出，按此顺序做）
 
 用户仍会为四件事打开 DevEco：看 log、看代码、性能分析、查看手机文件与数据库。除性能分析的图形部分外，其余都能收窄。

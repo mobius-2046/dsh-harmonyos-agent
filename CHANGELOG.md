@@ -1,3 +1,9 @@
+## 0.39.0
+
+- 构建缓存策略改成「看情况」：以前默认隔离 hvigor home（`HVIGOR_USER_HOME` 指到临时目录），好处是不碰你真实的 `~/.hvigor`，代价是 DevEco Studio 刚暖好的 `project_caches` 用不上——同一个 23 个模块的工程，隔离时 87 秒、共用时 70 秒，冷启动还要多付 40 秒。
+- 现在默认 `isolateHome: auto`：`tasklist` 查到 `devecostudio64.exe` 在跑就隔离（避免两边为同一份 `.hvigor` 打架），没在跑就共用（更快）。显式传 `isolateHome: true/false` 仍然优先。
+- 构建结果的 summary 多一行「hvigor 缓存：隔离/共用 ~/.hvigor（原因）」，`data.isolation` 带 `{isolated, reason, devEcoProcesses}`——两次同样的构建差 40 秒时，这一行就是解释。
+- 实测：`build module=entry` 73 秒，输出「隔离（检测到 DevEco Studio 在运行（8 个进程）…）」。自测 89/89。
 ## 0.38.0
 
 - 新增只读代码面板（左侧栏第二个图标）：`/api/harmony/code` 提供 `op=tree|file|find`，宿主侧 `lib/codewatch.js` 负责遍历、读文件（默认 200 KB 上限、只认源码与文本扩展名）、按名字搜声明；`lib/coderoutes.js` 只接受「看起来像 HarmonyOS 工程」的根目录，并拒绝越界路径。
