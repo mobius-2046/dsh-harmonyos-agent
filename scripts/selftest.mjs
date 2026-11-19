@@ -1365,6 +1365,17 @@ check('arkui components declared in .d.ets are resolved too', async () => {
   assert.ok(hit, 'lookupApi finds declarations in .d.ets')
   assert.equal(hit.since, '10')
 })
+check('missingSharedModules accepts the plain paths sharedPackages returns', () => {
+  // sharedPackages() yields strings; assuming objects made this throw
+  // `undefined.replaceAll` on a real device run. Keep both shapes working.
+  const declared = ['mapFunction', 'entry', '']  // the shape declaredSharedModules actually returns
+  const strings = ['D:/p/newMap/mapFunction/build/default/outputs/default/mapFunction-default-signed.hsp']
+  assert.deepEqual(missingSharedModules(declared, strings), ['entry'])
+  const objects = [{ file: 'D:/p/newMap/mapFunction/build/default/outputs/default/mapFunction-default-signed.hsp' }]
+  assert.deepEqual(missingSharedModules(declared, objects), ['entry'])
+  assert.deepEqual(missingSharedModules(declared, []), ['mapFunction', 'entry'])
+  assert.deepEqual(missingSharedModules([{ name: 'mapFunction' }], strings), [])
+})
 check('api lookup answers for a module name, not only for a declaration', () => {
   // A module name is a file name: `@ohos.x` states its version in its own header,
   // `@kit.X` has none and is answered by the highest version among its members.

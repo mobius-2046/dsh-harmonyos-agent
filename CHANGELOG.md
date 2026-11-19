@@ -1,3 +1,9 @@
+## 0.45.1
+
+- 修 0.42.0 引入的真机崩溃：`run` 的自动补建在真机上直接抛 `Cannot read properties of undefined`。
+  原因是两个内部函数的返回形状不一致 —— `declaredSharedModules()` 给的是**模块名数组**，`sharedPackages()` 给的是**路径数组**，
+  而 `missingSharedModules()` 两个都按对象读（`.name` / `.file`）。现在两种形状都接受，并补了一条用真实形状的回归测试。
+  教训：单元测试用的假数据形状一旦和真实函数不一致，就会把真机上的崩溃藏过去。
 ## 0.45.0
 
 - `docs op=api` 现在接受模块名（`@ohos.notificationManager`、`@kit.NotificationKit`）。此前只按「声明」找，  
