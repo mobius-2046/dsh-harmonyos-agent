@@ -74,7 +74,7 @@ dsh plugin --profile desktop add file:<本目录>
 | goal | `/goal <目标>；完成判据：<可观察结果>；验证方式：<命令>` | 持久目标 + 自动续跑；缺判据或验证方式会被拒绝，避免「一轮轮继续」 |
 | build | 关闭 plan 后的默认状态 | 直接改文件并构建验证 |
 
-## 十七个动作
+## 十七个动作（`docs` 多一个 `compat` 子操作）
 
 | action | 做的事 |
 |---|---|
@@ -92,7 +92,7 @@ dsh plugin --profile desktop add file:<本目录>
 | `ui` | `dump` 读控件树；`find` 只查不点；`wait` 等文字出现/消失；`assert` 断言界面（文字、个数、指纹），`device=all` 逐台跑出一张表；`tap`/`input`/`key`/`swipe` 操作 |
 | `file` | `op=pull` 拉回、`op=send` 推上去；`op=ls` 列目录、`op=cat` 读文本开头、`op=du` 算目录大小（这三个只读，plan 模式下也能用） |
 | `crash` | 读最新 jscrash / cppcrash / appfreeze，解出进程、原因、栈顶帧 |
-| `docs` | 离线文档：`config` 配目录、`search` 查关键词、`read` 读原文、`api` 查接口的 `@since` |
+| `docs` | 离线文档：`config` 配目录、`search` 查关键词、`read` 读原文、`api` 查接口的 `@since`、`compat` 查工程里的导入有没有超过目标 API |
 | `db` | 看应用自己的 SQLite：`op=list` 列出沙箱里的 `.db`，`op=query` 跑一条只读语句（拒一切写操作） |
 | `trace` | 抓一段 `hitrace`：返回事件类型与进程排行，原始 `.ftrace` 留给 perfetto |
 
@@ -128,6 +128,22 @@ harmony run projectDir=<仓库>/samples/hello-app device=all
 
 `build-profile.json5` 里的 `storePassword`/`keyPassword` 是 DevEco 的本地加密串，只有 DevEco 和 hvigor 解得上——仓库里放它没问题，本插件也从不尝试解密。
 
+## 这个接口，我这个 API 版本能用吗
+
+编译器会说「需要更新的 SDK」，但不会说「需要 22，你在 20」。`docs op=compat` 直接读 SDK 的 `.d.ts` 头，把工程里的
+`@ohos.*` / `@kit.*` 导入逐个对一遍 `compileSdkVersion`：
+
+```
+harmony action=docs op=compat
+API 兼容检查：目标 API 20，扫了 1500 个源文件，726 处 @ohos / @kit 导入
+没有超过目标版本的导入。
+SDK 里查不到版本的导入：@kit.CoreSpeechKit、@ohos.smartcom.audiosynthesis
+```
+
+三点说明：它看的是**模块**的 `@since`，不是每个方法各自的版本（模块级够用：导入一个 22 的模块，20 上一定编不过）；
+`@kit.*` 通过它转出的 `@ohos.*` 取最高版本；查不到版本的会单列出来，不会假装通过。
+
+反过来的用法也有价值：想知道某个工程最低能降到哪个 API，把它当「用到了什么」的清单看。
 ## 机器越用越慢？先看 hdc 服务
 
 `hdc` 是华为的设备服务进程，一个用户一个，DevEco Studio 和本插件共用它。它有个已知的累积问题：

@@ -1,3 +1,8 @@
+## 0.41.0
+
+- 新增 `docs op=compat`：读 `build-profile.json5` 的 `compileSdkVersion`，把工程里 `@ohos.*` / `@kit.*` 导入逐个对 SDK 的
+  `.d.ts` 取 `@since`，列出超过目标 API 的导入（文件:行）。`@kit.*` 按它转出的模块取最高版本；查不到的单独列出。
+- 未接设备也能跑：读盘 + 语法分析，不碰 hdc/hvigor。真实工程实测 1500 个源文件 / 726 处导入，1 秒内出结果。
 ## 0.40.1
 
 - 修：工具级 `export const inject` 没声明 `planMode` / `workingDirectory` 时，Cordis 取服务会直接抛错，

@@ -32,6 +32,7 @@ import { findSymbols, insideRoot, listTree, readSource } from '../lib/codewatch.
 import { resolveHvigorIsolation } from '../lib/locate.js'
 import { handleCodeRequest } from '../lib/coderoutes.js'
 import { HDC_THRESHOLDS, classifyHdcServer, formatHdcServer, mergeHdcSnapshots } from '../lib/hdcwatch.js'
+import { apiLevels, checkApiCompat, extractApiImports, formatApiCompat, listSources, moduleSince, sinceOf } from '../lib/apicheck.js'
 import {
   createHarmonyTools,
   parseFaultLog,
@@ -1300,6 +1301,58 @@ check('tools survive a context whose services are not injected', async () => {
   assert.equal(typeof planish.ok, 'boolean', 'the plan guard does not explode')
 })
 
+check('api levels are read from either JSON5 form', () => {
+  assert.deepEqual(apiLevels('"compileSdkVersion": 20, "compatibleSdkVersion": 12'), { compile: 20, compatible: 12 })
+  assert.deepEqual(apiLevels('{"compileSdkVersion": "5.0.0(22)", "compatibleSdkVersion": "5.0.0(18)"}'), { compile: 22, compatible: 18 })
+  assert.equal(apiLevels('{}').compile, null)
+})
+
+check('only @ohos and @kit imports are collected, with their line numbers', () => {
+  const source = [
+    "import { notificationManager } from '@ohos.notificationManager'",
+    "import { UIAbility } from '@kit.AbilityKit'",
+    "import { join } from 'node:path'",
+    "export * from './local'",
+  ].join('\n')
+  const found = extractApiImports(source)
+  assert.equal(found.length, 2)
+  assert.equal(found[0].specifier, '@ohos.notificationManager')
+  assert.equal(found[0].line, 1)
+  assert.equal(found[1].specifier, '@kit.AbilityKit')
+  assert.equal(found[1].line, 2)
+})
+
+check('module @since is read past the licence header', () => {
+  const text = ['/*', ' * Copyright', ' */', '/**', ' * @file', ' * @since 9', ' */', 'declare namespace x {}'].join('\n')
+  assert.equal(moduleSince(text), '9')
+  assert.equal(moduleSince('no version here'), 'unknown')
+})
+
+check('compat scan names imports newer than the target API', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'harmony-compat-'))
+  const sdk = join(root, 'ets', 'api')
+  const kits = join(root, 'ets', 'kits')
+  mkdirSync(sdk, { recursive: true })
+  mkdirSync(kits, { recursive: true })
+  const project = join(root, 'project')
+  mkdirSync(join(project, 'entry', 'src', 'main', 'ets'), { recursive: true })
+  writeFileSync(join(sdk, '@ohos.old.d.ts'), '/**\n * @since 8\n */\ndeclare namespace old {}')
+  writeFileSync(join(sdk, '@ohos.new.d.ts'), '/**\n * @since 22\n */\ndeclare namespace newer {}')
+  writeFileSync(join(kits, '@kit.Mixed.d.ts'), "export { x } from '@ohos.old'\nexport { y } from '@ohos.new'")
+  writeFileSync(join(project, 'entry', 'src', 'main', 'ets', 'Page.ets'), [
+    "import { a } from '@ohos.old'",
+    "import { b } from '@ohos.new'",
+    "import { c } from '@kit.Mixed'",
+  ].join('\n'))
+  assert.equal(sinceOf('@kit.Mixed', { sdkRoot: sdk, kitsRoot: kits }), '22')
+  const files = listSources(project)
+  assert.equal(files.length, 1)
+  const report = checkApiCompat({ sdkRoot: sdk, kitsRoot: kits, target: 20, files, root: project })
+  assert.equal(report.over.length, 2, 'the API 22 module and the kit that exposes it')
+  assert.ok(report.over.every((entry) => entry.since === '22'))
+  const lines = formatApiCompat(report).join('\n')
+  assert.ok(lines.includes('@ohos.new') && lines.includes('目标 API 20'), lines)
+})
 const failed = results.filter((result) => !result.ok)
 for (const result of results) {
   console.log(`${result.ok ? 'ok  ' : 'FAIL'}  ${result.name}${result.ok ? '' : `\n      ${result.error}`}`)

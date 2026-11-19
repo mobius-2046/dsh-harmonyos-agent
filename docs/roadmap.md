@@ -134,6 +134,7 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 1. **探测预算**（`async-budget.mjs`）：一组互相独立的探测各自限时、共享总预算，超时与"来不及开始"分开报告。它的注释写得很实在——在没有边界时，一次卡住的 hdc 探测会把整个 `doctor` 拖过外层超时。我们的 `doctor` 9 项是顺序跑的，同样有这个风险。
 2. **`hdc_ui_find`**：只查控件不点击，返回 bounds 与中心点。我们的 `ui tap` 内部有 `findUiNode`，但没有"只找"的动作——先查清楚再决定点不点，比"点了才发现找错"便宜。
 3. **版本化 API 查询**（`hms_api`）：从本地 SDK 的 `.d.ts` 按 `@since` 分类回答"这个接口从哪个 API 版本才有"。我们目前只能靠模型记忆，答错方向会很隐蔽。
+   （✅ 0.41.0：`docs op=api` 查单个符号，`docs op=compat` 查整个工程的导入是否超过 `compileSdkVersion`。）
 4. **自身诊断**（`hdc_diag`）：专门回答"这个工具自己为什么没找到 hdc"。我们的 `doctor` 诊断工程，不诊断工具。
 
 另外两个次要的：**记住上次用的设备**（对方有 `preferred` 概念，我们总是取第一台），以及 **`switch_cwd`**（显式设工作目录，少传 `projectDir`；但要先评估与 DSH 会话工作目录的关系，避免两套概念打架）。
