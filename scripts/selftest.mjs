@@ -15,7 +15,7 @@ import { harmonyPreset } from '../lib/preset.js'
 import { createBudget } from '../lib/budget.js'
 import { createLogRoutes } from '../lib/hilog.js'
 import { parseDeviceInfo } from '../lib/deviceinfo.js'
-import { lookupApi, readDoc, searchDocs } from '../lib/docs.js'
+import { locateDocs, lookupApi, readDoc, searchDocs } from '../lib/docs.js'
 import { explain } from '../lib/errorcodes.js'
 import { waitUntil } from '../lib/wait.js'
 import { assertUi, uiFingerprint } from '../lib/uiassert.js'
@@ -1364,6 +1364,25 @@ check('arkui components declared in .d.ets are resolved too', async () => {
   const hit = lookupApi({ sdkRoot: api, symbol: 'DemoCard' })
   assert.ok(hit, 'lookupApi finds declarations in .d.ets')
   assert.equal(hit.since, '10')
+})
+check('doc search hits carry a path relative to their root, and locate matches names', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'harmony-docs-'))
+  const root = join(dir, 'docs')
+  mkdirSync(join(root, 'reference', 'kit'), { recursive: true })
+  mkdirSync(join(root, 'guide'), { recursive: true })
+  writeFileSync(join(root, 'reference', 'kit', 'js-apis-notificationManager.md'), '# NotificationManager\n\nnotificationManager.subscribe 用来订阅。')
+  writeFileSync(join(root, 'guide', 'notification-overview.md'), '# 通知概览\n\n这里也提到 notificationManager。')
+  const found = searchDocs({ dirs: [root], query: 'notificationManager' })
+  assert.ok(found.hits.length >= 2)
+  for (const hit of found.hits) {
+    assert.ok(hit.rel && !hit.rel.includes(':' ) && !hit.rel.startsWith('\\'), `rel should be relative: ${hit.rel}`)
+    assert.ok(existsSync(hit.file))
+  }
+  const located = locateDocs({ dirs: [root], name: 'notificationManager' })
+  assert.equal(located.hits.length, 1)
+  assert.equal(located.hits[0].rel, 'reference/kit/js-apis-notificationManager.md')
+  const none = locateDocs({ dirs: [root], name: 'nothing-like-this' })
+  assert.equal(none.hits.length, 0)
 })
 const failed = results.filter((result) => !result.ok)
 for (const result of results) {

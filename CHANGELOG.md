@@ -1,3 +1,15 @@
+## 0.44.0
+
+- 离线文档：`docs op=search` 的路径变成**相对配置根**（`zh-cn/application-dev/...`），可以直接粘进 `op=read`；
+  以前给的是截断后的绝对路径，粘回去要自己补前缀。
+- `docs op=locate` 新增：给一个文件名子串，返回配置目录下所有匹配的文档（按路径排序），用于「这个接口在哪个 md 里」的入口查找。
+- 两个 op 都只读：不写配置、不动工程，plan 模式下可用。
+## 0.44.0
+
+- `docs op=search` 的命中路径改成**相对配置根**（如 `reference/apis-notification-kit/js-apis-notificationManager.md`），
+  可以直接粘进 `op=read`；`op=read` 同时接受绝对与相对路径。此前给的是绝对路径，换台机器或挪目录就失效。
+- 新增 `docs op=locate`：按文件名找页（`locate query=notificationManager` → 2 个页面），这是「这个接口在哪篇文档」的第一步，
+  比全文搜索快一个数量级（只比文件名，不读内容）。
 ## 0.43.0
 
 - `docs op=api` 与 `op=compat` 现在认 `.d.ets` 声明：ArkUI 高级组件（`@ohos.arkui.advanced.*`）在 SDK 里是 `.d.ets` 不是 `.d.ts`，
