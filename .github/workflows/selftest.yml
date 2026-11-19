@@ -1,0 +1,25 @@
+name: selftest
+
+# The plugin's own logic is plain Node: no DevEco, no device, no network. That is
+# exactly the subset that can run here, so it runs on every push and PR.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Run the pure-logic test suite
+        run: node scripts/selftest.mjs

@@ -1355,6 +1355,16 @@ check('run repairs missing shared modules once instead of only advising', async 
   assert.ok(source.includes('await build({ ...args, hsp: true }, exec)'), 'run rebuilds hsp when artifacts are missing')
   assert.ok(source.includes('已修：'), 'the repair is reported, not silent')
 })
+check('arkui components declared in .d.ets are resolved too', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'harmony-dets-'))
+  const api = join(dir, 'api')
+  mkdirSync(api, { recursive: true })
+  writeFileSync(join(api, '@ohos.arkui.advanced.DemoCard.d.ets'), '/**' + '\n' + ' * @kit ArkUI' + '\n' + ' */' + '\n' + '/**' + '\n' + ' * @since 10' + '\n' + ' */' + '\n' + 'export declare struct DemoCard {}')
+  assert.equal(sinceOf('@ohos.arkui.advanced.DemoCard', { sdkRoot: api }), '10')
+  const hit = lookupApi({ sdkRoot: api, symbol: 'DemoCard' })
+  assert.ok(hit, 'lookupApi finds declarations in .d.ets')
+  assert.equal(hit.since, '10')
+})
 const failed = results.filter((result) => !result.ok)
 for (const result of results) {
   console.log(`${result.ok ? 'ok  ' : 'FAIL'}  ${result.name}${result.ok ? '' : `\n      ${result.error}`}`)

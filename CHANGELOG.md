@@ -1,3 +1,9 @@
+## 0.43.0
+
+- `docs op=api` 与 `op=compat` 现在认 `.d.ets` 声明：ArkUI 高级组件（`@ohos.arkui.advanced.*`）在 SDK 里是 `.d.ets` 不是 `.d.ts`，
+  之前一律答「SDK 里没有」。真实工程里查不到版本的导入从 3 个降到 2 个，剩下两个（`@kit.CoreSpeechKit`、`@ohos.smartcom.audiosynthesis`）
+  确实不在本机 SDK 里。
+- 新增 GitHub Actions `selftest`：纯逻辑测试在 ubuntu/windows × node 20/22 上跑，不需要 DevEco、设备或网络。
 ## 0.42.0
 
 - `run` 会在装机前对一次「声明了但没产物」的 shared 模块：把 `build-profile.json5` 里 `type: shared` 的模块与磁盘上的

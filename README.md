@@ -264,6 +264,12 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 完整动机与细节见 [CHANGELOG.md](CHANGELOG.md)，安装包见 [Releases](https://github.com/mobius-2046/dsh-harmonyos-agent/releases)。
 
+## 怎么确认它没坏
+
+`node scripts/selftest.mjs` 是纯逻辑测试（101 项）：解析、策略、schema 形状、路由约定都在里面，不需要 DevEco、设备或网络，
+所以每次 push 都在 GitHub Actions 的 ubuntu / windows × node 20 / 22 上跑一遍。真正需要设备的路径（构建、装机、界面操作）
+不在 CI 里，只能本地跑 `node scripts/run-action.mjs <action>`。
+
 ## 更多
 
 - [docs/design-notes.md](docs/design-notes.md)：给维护者——踩过的坑、改代码何时要重启、工具 schema 陷阱、为什么预设是运行时注册的。
