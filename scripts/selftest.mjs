@@ -1365,6 +1365,26 @@ check('arkui components declared in .d.ets are resolved too', async () => {
   assert.ok(hit, 'lookupApi finds declarations in .d.ets')
   assert.equal(hit.since, '10')
 })
+check('api lookup answers for a module name, not only for a declaration', () => {
+  // A module name is a file name: `@ohos.x` states its version in its own header,
+  // `@kit.X` has none and is answered by the highest version among its members.
+  const dir = mkdtempSync(join(tmpdir(), 'harmony-kit-'))
+  const api = join(dir, 'api')
+  const kits = join(dir, 'kits')
+  mkdirSync(api, { recursive: true })
+  mkdirSync(kits, { recursive: true })
+  writeFileSync(join(api, '@ohos.alpha.d.ts'), '/**\n * @since 9\n */\ndeclare namespace alpha {}')
+  writeFileSync(join(api, '@ohos.beta.d.ts'), '/**\n * @since 12\n */\ndeclare namespace beta {}')
+  writeFileSync(join(kits, '@kit.DemoKit.d.ts'), "export { alpha } from '@ohos.alpha';\nexport { beta } from '@ohos.beta'")
+  const moduleHit = lookupApi({ sdkRoot: api, symbol: '@ohos.beta' })
+  assert.equal(moduleHit.module, '@ohos.beta')
+  assert.equal(moduleHit.since, '12')
+  const kitHit = lookupApi({ sdkRoot: api, symbol: '@kit.DemoKit' })
+  assert.equal(kitHit.kit, '@kit.DemoKit')
+  assert.equal(kitHit.since, '12', 'kit takes the highest member version')
+  assert.equal(kitHit.memberCount, 2)
+  assert.equal(lookupApi({ sdkRoot: api, symbol: '@kit.Missing' }), null)
+})
 check('doc search hits carry a path relative to their root, and locate matches names', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'harmony-docs-'))
   const root = join(dir, 'docs')

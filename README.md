@@ -92,7 +92,7 @@ dsh plugin --profile desktop add file:<本目录>
 | `ui` | `dump` 读控件树；`find` 只查不点；`wait` 等文字出现/消失；`assert` 断言界面（文字、个数、指纹），`device=all` 逐台跑出一张表；`tap`/`input`/`key`/`swipe` 操作 |
 | `file` | `op=pull` 拉回、`op=send` 推上去；`op=ls` 列目录、`op=cat` 读文本开头、`op=du` 算目录大小（这三个只读，plan 模式下也能用） |
 | `crash` | 读最新 jscrash / cppcrash / appfreeze，解出进程、原因、栈顶帧 |
-| `docs` | 离线文档：`config` 配目录、`locate` 按文件名找页、`search` 查关键词（返回相对路径可直接 `read`）、`read` 读原文、`api` 查接口的 `@since`、`compat` 查工程里的导入有没有超过目标 API |
+| `docs` | 离线文档：`config` 配目录、`locate` 按文件名找页、`search` 查关键词（返回相对路径可直接 `read`）、`read` 读原文、`api` 查接口或模块（`@ohos.x`/`@kit.X`）的 `@since`、`compat` 查工程里的导入有没有超过目标 API |
 | `db` | 看应用自己的 SQLite：`op=list` 列出沙箱里的 `.db`，`op=query` 跑一条只读语句（拒一切写操作） |
 | `trace` | 抓一段 `hitrace`：返回事件类型与进程排行，原始 `.ftrace` 留给 perfetto |
 

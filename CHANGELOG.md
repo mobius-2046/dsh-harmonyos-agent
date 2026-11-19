@@ -1,3 +1,9 @@
+## 0.45.0
+
+- `docs op=api` 现在接受模块名（`@ohos.notificationManager`、`@kit.NotificationKit`）。此前只按「声明」找，  
+  问「这个模块从哪个 API 版本开始有」时答的是「没找到」。规则：`@ohos.x` 由自己的文件头回答；  
+  `@kit.X` 自己没有版本，取它转出的模块里最高的那个，并列出成员与各自版本。kit 文件在 `<ets>/kits`，  
+  不在 `<ets>/api`（这也是第一版为什么仍答「没找到」）。
 ## 0.44.0
 
 - 离线文档：`docs op=search` 的路径变成**相对配置根**（`zh-cn/application-dev/...`），可以直接粘进 `op=read`；
