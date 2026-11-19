@@ -33,23 +33,7 @@ import { resolveHvigorIsolation } from '../lib/locate.js'
 import { handleCodeRequest } from '../lib/coderoutes.js'
 import { HDC_THRESHOLDS, classifyHdcServer, formatHdcServer, mergeHdcSnapshots } from '../lib/hdcwatch.js'
 import { apiLevels, checkApiCompat, extractApiImports, formatApiCompat, listSources, moduleSince, sinceOf } from '../lib/apicheck.js'
-import {
-  createHarmonyTools,
-  parseFaultLog,
-  filterLogLines,
-  filterByPid,
-  findUiNode,
-  findUiNodes,
-  flattenUi,
-  inferTarget,
-  nativePath,
-  parseBounds,
-  parseBundleDump,
-  parseHvigorOutput,
-  parseOutput,
-  parseTargets,
-  signingState,
-} from '../lib/tools.js'
+import { createHarmonyTools, filterByPid, filterLogLines, findUiNode, findUiNodes, flattenUi, inferTarget, missingSharedModules, nativePath, parseBounds, parseBundleDump, parseFaultLog, parseHvigorOutput, parseOutput, parseTargets, signingState } from '../lib/tools.js'
 
 const results = []
 // Optional: only used to parse cordis.patch.yml. Falls back to a regex check
@@ -1352,6 +1336,24 @@ check('compat scan names imports newer than the target API', async () => {
   assert.ok(report.over.every((entry) => entry.since === '22'))
   const lines = formatApiCompat(report).join('\n')
   assert.ok(lines.includes('@ohos.new') && lines.includes('目标 API 20'), lines)
+})
+check('shared modules without a signed hsp are named, and only those', () => {
+  const declared = [{ name: 'mapFunction' }, { name: 'mapCommon' }, { name: 'nextMap' }]
+  const produced = [
+    { file: 'D:/p/newMap/nextMap/build/default/outputs/default/nextMap-default-signed.hsp' },
+    { file: 'D:/p/newMap/mapCommon/build/default/outputs/default/mapCommon-default-signed.hsp' },
+    { file: 'D:/p/newMap/nextMap/build/default/outputs/default/nextMap-default-unsigned.hsp' },
+  ]
+  assert.deepEqual(missingSharedModules(declared, produced), ['mapFunction'])
+  assert.deepEqual(missingSharedModules(declared, []), ['mapFunction', 'mapCommon', 'nextMap'])
+  assert.deepEqual(missingSharedModules([], produced), [])
+})
+
+check('run repairs missing shared modules once instead of only advising', async () => {
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  assert.ok(source.includes('missingSharedModules(declaredShared, producedShared)'), 'run compares declared with produced')
+  assert.ok(source.includes('await build({ ...args, hsp: true }, exec)'), 'run rebuilds hsp when artifacts are missing')
+  assert.ok(source.includes('已修：'), 'the repair is reported, not silent')
 })
 const failed = results.filter((result) => !result.ok)
 for (const result of results) {

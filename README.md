@@ -81,7 +81,7 @@ dsh plugin --profile desktop add file:<本目录>
 | `build` | `hvigorw assembleHap`（`hsp: true` 时再跑 `assembleHsp`），返回产物、是否已签名、结构化错误 |
 | `compile` | 只做 ArkTS 类型检查，约是完整构建的一半时间 |
 | `deps` | `ohpm install --all`：改了 `oh-package.json5` 之后同步依赖 |
-| `run` | build → 装包 →（HSP）补依赖 → `aa start` → 抓日志，五段结论；`matrix` 可按设备分工；plan 模式下拒绝 |
+| `run` | build → 装包 →（HSP）补依赖 → `aa start` → 抓日志，五段结论；缺 shared 产物时自动补建一次；`matrix` 可按设备分工；plan 模式下拒绝 |
 | `devices` | 列出设备与机型、API、电量、温度、内存、存储 |
 | `deploy` | 装指定 `.hap`，可选拉起；支持多设备 |
 | `logs` | 限时抓 `hilog`；给 `bundleName` 就按 pid 只留这个应用；`filter` 用子串或 `/regex/flags`；默认返回摘要（级别计数、重复折叠、错误列表），`view: "raw"` 看原文 |

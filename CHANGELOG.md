@@ -1,3 +1,9 @@
+## 0.42.0
+
+- `run` 会在装机前对一次「声明了但没产物」的 shared 模块：把 `build-profile.json5` 里 `type: shared` 的模块与磁盘上的
+  `*-signed.hsp` 对比，缺的自动跑一次 `hsp: true` 构建再装，而不是把 `dependent module does not exist` 原样丢回来。
+  只在真缺产物时发生（不是每次都跑），结果写进 summary 的「已修：」和 `data.repairs`；`matrix` 与多设备两条路径都覆盖。
+- 无设备时不会触发这次补建：设备检查在补建之前，避免为了一个装不上去的包多花四分钟。
 ## 0.41.0
 
 - 新增 `docs op=compat`：读 `build-profile.json5` 的 `compileSdkVersion`，把工程里 `@ohos.*` / `@kit.*` 导入逐个对 SDK 的
