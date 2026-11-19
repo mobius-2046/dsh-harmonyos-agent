@@ -1,3 +1,9 @@
+## 0.45.2
+
+- 文档：`run` 的「缺 shared 产物自动补建」已在真机上验收，README 与 design-notes 记下这次的做法与代价。
+  验证方法：把 `ArsenalModel-default-signed.hsp` 移到 `%TEMP%` → `harmony run device=…` →
+  summary 出现「已修：缺 shared 产物（ArsenalModel），自动补建成功」，编译 83 s + assembleHsp 约 4 分钟，
+  装包启动成功，产物回到 23 个。
 ## 0.45.1
 
 - 修 0.42.0 引入的真机崩溃：`run` 的自动补建在真机上直接抛 `Cannot read properties of undefined`。
