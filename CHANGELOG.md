@@ -1,3 +1,15 @@
+## 0.40.1
+
+- 修：工具级 `export const inject` 没声明 `planMode` / `workingDirectory` 时，Cordis 取服务会直接抛错，
+  真实宿主上表现为第一次调用 `harmony` 就报 `cannot get property "planMode" without inject`。
+  现在通过 `serviceOf()` 安全取用，取不到就当作「没有 plan 模式」。
+## 0.40.0
+
+- `doctor` 多一行「hdc 服务」：PID、已运行时长、线程、句柄、虚拟内存、CPU 空转；超阈值时给原因。
+- `doctor fix=true` 在这行不健康时 `hdc kill` 回收，并在回复里写明「DevEco 的连接会闪断约 2 秒」。
+- 设备徽标不再每轮都取机型/电量：只有浮层展开时才取，且 15 秒内复用；关闭时只取 id 列表。
+- `/api/harmony/logs/devices` 增加 `?details=1` 与 15 秒服务端缓存（此前每次轮询都跑一次 shell 探测）。
+- 阈值依据实测写死并注释：新起的服务 136 线程 / 5.2 GB 属基线，真正的信号是持续 CPU 与增长。
 ## 0.39.1
 
 - 缓存策略改成「默认共用」：`isolateHome` 不传时直接用 `~/.hvigor`，让 DevEco Studio 暖着的缓存能复用；只有 `~/.hvigor` 真的不可写（沙箱/只读 profile）才退回隔离目录。

@@ -31,6 +31,7 @@ import { formatAssertRow } from '../lib/uiassert.js'
 import { findSymbols, insideRoot, listTree, readSource } from '../lib/codewatch.js'
 import { resolveHvigorIsolation } from '../lib/locate.js'
 import { handleCodeRequest } from '../lib/coderoutes.js'
+import { HDC_THRESHOLDS, classifyHdcServer, formatHdcServer, mergeHdcSnapshots } from '../lib/hdcwatch.js'
 import {
   createHarmonyTools,
   parseFaultLog,
@@ -1233,6 +1234,70 @@ check('build reports which cache strategy ran', () => {
   assert.ok(source.includes('hvigor 缓存：'), 'the summary names the strategy')
   assert.ok(source.includes('resolveHvigorIsolation({ requested: args.isolateHome })'), 'the flag reaches the policy')
   assert.ok(source.includes('data.isolation') || source.includes('isolation: { isolated:'), 'the decision is in data')
+})
+
+check('hdc server sampling merges two snapshots into one line', () => {
+  const raw = {
+    first: { pid: 9796, threads: 136, handles: 398, vm: 5561610240, ws: 23269376, cpu: 62212812500, start: '2026-11-18T10:40:28.000Z', at: 1000 },
+    second: { pid: 9796, threads: 136, handles: 398, vm: 5561610240, ws: 23269376, cpu: 62212968750, start: '2026-11-18T10:40:28.000Z', at: 2000 },
+  }
+  const sample = mergeHdcSnapshots(raw, { now: Date.parse('2026-11-18T12:40:28.000Z') })
+  // 156250 * 100ns = 0.0156 s of CPU over 1 s -> 0.016 cores.
+  assert.ok(Math.abs(sample.cpuCores - 0.0156) < 0.001, `cpu delta math: ${sample.cpuCores}`)
+  assert.equal(sample.pid, 9796)
+  assert.ok(Math.abs(sample.virtualGb - 5.18) < 0.01)
+  assert.ok(Math.abs(sample.uptimeHours - 2) < 0.01)
+  const line = formatHdcServer(sample)
+  assert.ok(line.includes('136 线程') && line.includes('CPU 0.02 核'), line)
+  // PowerShell collapses one-element arrays to objects; that shape must work.
+  assert.ok(mergeHdcSnapshots({ first: raw.first, second: raw.second }), 'single-object snapshots are accepted')
+  assert.equal(mergeHdcSnapshots({ first: [], second: [] }), undefined)
+})
+
+check('hdc server classifier stays quiet on a fresh server and loud on a leaking one', () => {
+  const fresh = classifyHdcServer({ threads: 136, virtualGb: 5.18, cpuCores: 0.014 })
+  assert.equal(fresh.level, 'ok')
+  assert.deepEqual(fresh.reasons, [])
+  const leaking = classifyHdcServer({ threads: 138, virtualGb: 5.46, cpuCores: 0.17 })
+  assert.equal(leaking.level, 'warn')
+  assert.ok(leaking.reasons.some((reason) => reason.includes('个核')), leaking.reasons.join('，'))
+  const worse = classifyHdcServer({ threads: 300, virtualGb: 11, cpuCores: 0.4 })
+  assert.equal(worse.level, 'critical')
+  assert.equal(worse.reasons.length, 3)
+  assert.ok(HDC_THRESHOLDS.cpuCoresWarn > 0, 'thresholds are exported for documentation')
+})
+
+check('device details are opt-in and cached, not collected on every poll', () => {
+  const source = readFileSync(new URL('../lib/hilog.js', import.meta.url), 'utf8')
+  assert.ok(source.includes("searchParams.get('details') === '1'"), 'details need an explicit flag')
+  assert.ok(/detailsCache\.at < detailsTtlMs/.test(source), 'a cache hit skips the shell probe')
+  const client = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  assert.ok(client.includes('?details=1'), 'the badge asks for details only when open')
+  assert.ok(/openRef\.current === true && Date\.now\(\) - detailsAt\.current > 15_000/.test(client), 'details refresh is throttled to 15 s')
+})
+
+check('doctor reports the hdc server and can recycle it', () => {
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  assert.ok(source.includes("row('hdc 服务'"), 'doctor has a row for the server')
+  assert.ok(source.includes('classifyHdcServer(hdcServer.sample)'), 'the row uses the classifier')
+  assert.ok(source.includes('recycleHdcServer({ hdc: hdc.command })'), 'fix can recycle the server')
+  assert.ok(source.includes('DevEco 的连接会闪断'), 'the repair states the side effect')
+})
+
+check('tools survive a context whose services are not injected', async () => {
+  // Cordis throws on property access for services the plugin did not declare,
+  // and the tests' plain object could never reproduce that — the real host did,
+  // on the very first `harmony doctor` call after this guard was added.
+  const strict = new Proxy({}, {
+    get(_target, name) {
+      throw new Error(`cannot get property "${String(name)}" without inject`)
+    },
+  })
+  const [tool] = createHarmonyTools(strict)
+  const result = await tool.execute({ action: 'devices' }, { agent: { session: {} } })
+  assert.equal(typeof result.ok, 'boolean', 'the call answers instead of throwing')
+  const planish = await tool.execute({ action: 'build' }, { agent: { session: {} } })
+  assert.equal(typeof planish.ok, 'boolean', 'the plan guard does not explode')
 })
 
 const failed = results.filter((result) => !result.ok)

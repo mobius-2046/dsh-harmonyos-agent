@@ -1684,9 +1684,14 @@ window.__ModuleLoader__.load({
      */
     function useDeviceList(open) {
       const [state, setState] = React.useState({ ok: true, devices: [], details: {}, preferred: null, error: null })
+      // Details (model/battery/memory) cost a shell probe per device, so they
+      // are only fetched while the popover is open, and at most every 15 s.
+      const openRef = React.useRef(open)
+      const detailsAt = React.useRef(0)
       const load = React.useCallback(async () => {
+        const wantDetails = openRef.current === true && Date.now() - detailsAt.current > 15_000
         try {
-          const response = await fetch(DEVICES_API, { headers: { accept: 'application/json' } })
+          const response = await fetch(wantDetails ? `${DEVICES_API}?details=1` : DEVICES_API, { headers: { accept: 'application/json' } })
           if (!response.ok) {
             // A 404 here is the framework's plain-text `not found`, not our
             // JSON — parsing it first produced "Unexpected token 'o'" instead
@@ -1721,12 +1726,26 @@ window.__ModuleLoader__.load({
             }
           }
           const preferred = typeof data.preferred === 'string' && devices.includes(data.preferred) ? data.preferred : (devices[0] ?? null)
-          setState({ ok: data.ok !== false, devices, details, preferred, error: typeof data.error === 'string' ? data.error : null })
+          const fresh = Array.isArray(data.details) && data.details.length > 0
+          if (fresh) detailsAt.current = Date.now()
+          setState((prev) => {
+            // Without a details fetch, keep the last known values for devices
+            // that are still attached, so the popover does not blank out
+            // between the cheap id polls.
+            const merged = {}
+            if (fresh) {
+              for (const id of devices) if (details[id]) merged[id] = details[id]
+            } else {
+              for (const id of devices) if (prev.details[id]) merged[id] = prev.details[id]
+            }
+            return { ok: data.ok !== false, devices, details: merged, preferred, error: typeof data.error === 'string' ? data.error : null }
+          })
         } catch (error) {
           setState({ ok: false, devices: [], details: {}, preferred: null, error: error instanceof Error ? error.message : String(error) })
         }
       }, [])
       React.useEffect(() => {
+        openRef.current = open
         load()
         const timer = window.setInterval(load, open ? DEVICE_POLL_OPEN : DEVICE_POLL_CLOSED)
         return () => window.clearInterval(timer)
