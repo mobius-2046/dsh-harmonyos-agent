@@ -22,7 +22,7 @@ import { assertUi, uiFingerprint } from '../lib/uiassert.js'
 import { absoluteMaterials, inspectCertificate, parseSigningConfigs, pickSignInput, signingReport } from '../lib/signing.js'
 import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
 import { attributeFailure } from '../lib/attribute.js'
-import { formatMatrixRow, parseDeviceMatrix } from '../lib/devicematrix.js'
+import { formatAssertMatrixRow, formatMatrixRow, parseAssertMatrix, parseDeviceMatrix } from '../lib/devicematrix.js'
 import { formatLogSummary, parseLogLine, summarizeLogs } from '../lib/logsummary.js'
 import { formatBytes, formatEntry, parseDuKb, parseLsListing } from '../lib/remotefs.js'
 import { checkReadOnlySql, formatRows } from '../lib/db.js'
@@ -170,6 +170,37 @@ check('formatAssertRow names the expectation that broke on each device', () => {
   assert.match(formatAssertRow({ device: 'c', ok: false, nodeCount: 0, fingerprint: '', checks: [], error: 'UI 树抓取失败' }), /UI 树抓取失败/)
   // No digest must not render as the string "undefined".
   assert.match(formatAssertRow({ device: 'd', ok: false, nodeCount: 0, fingerprint: '', checks: [] }), /指纹 —/)
+})
+
+check('parseAssertMatrix gives each device its own expectation', () => {
+  const plan = parseAssertMatrix('a=登录; b=设置 ', ['a', 'b'])
+  assert.deepEqual(plan.entries, [{ device: 'a', expect: '登录' }, { device: 'b', expect: '设置' }])
+  // More than one "=" is part of the expectation, not a second field.
+  assert.deepEqual(parseAssertMatrix('a=名称 = 测试', ['a']).entries, [{ device: 'a', expect: '名称 = 测试' }])
+  assert.match(parseAssertMatrix('a', ['a']).errors[0], /没有写期望文字/)
+  assert.match(parseAssertMatrix('a=登录;a=设置', ['a']).errors[0], /两次/)
+  // A line without "=" has no expectation to check, which is its own error.
+  assert.match(parseAssertMatrix('a;a=设置', ['a']).errors[0], /没有写期望文字/)
+  assert.deepEqual(parseAssertMatrix('a=登录;b=设置', ['a']).unknown, ['b'])
+  assert.match(parseAssertMatrix('   ', ['a']).errors[0], /matrix 为空/)
+})
+
+check('formatAssertMatrixRow states the expected text per device', () => {
+  const pass = formatAssertMatrixRow({ device: 'a', expect: '登录', ok: true, reason: null, nodeCount: 12, fingerprint: 'abc123' })
+  assert.equal(pass, '- a · ✓ · 「登录」 · 12 个节点 · 指纹 abc123')
+  const fail = formatAssertMatrixRow({ device: 'b', expect: '设置', ok: false, reason: '实际 0，期望 1', nodeCount: 7, fingerprint: 'def456' })
+  assert.match(fail, /- b · ✗ · 「设置」 · 7 个节点 · 指纹 def456 · 实际 0，期望 1/)
+  const noTree = formatAssertMatrixRow({ device: 'c', expect: '登录', ok: false, reason: 'UI 树抓取失败', nodeCount: 0, fingerprint: '' })
+  assert.match(noTree, /UI 树抓取失败/)
+  assert.doesNotMatch(noTree, /指纹/)
+})
+
+check('ui op=assert with a matrix reads each device expectation separately', () => {
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  assert.match(source, /parseAssertMatrix\(args\.matrix, all\.ids\)/)
+  // The matrix branch must not fall back to the shared args.text.
+  const branch = source.slice(source.indexOf('if (args.matrix) {', source.indexOf("if (op === 'assert')")))
+  assert.match(branch.slice(0, 3000), /assertUi\(nodes, \{ text: entry\.expect \}\)/)
 })
 
 check('plan mode refuses build/compile/deps/run/deploy/app before touching hvigor', async () => {
