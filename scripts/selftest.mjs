@@ -203,6 +203,27 @@ check('ui op=assert with a matrix reads each device expectation separately', () 
   assert.match(branch.slice(0, 3000), /assertUi\(nodes, \{ text: entry\.expect \}\)/)
 })
 
+check('snapshots grow to 12 but stay inside a byte budget', () => {
+  const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  assert.match(source, /const SNAPSHOTS_MAX = 12/)
+  assert.match(source, /const SNAPSHOTS_BYTES_MAX = 1_500_000/)
+  // The budget must be applied where snapshots are written, not only where the
+  // state is sliced, otherwise localStorage still gets the oversize list.
+  assert.match(source, /function storeSnapshots\(snapshots\) \{\s*try \{\s*window\.localStorage\.setItem\(SNAPSHOT_KEY, JSON\.stringify\(trimSnapshots\(snapshots\)\)\)/)
+  assert.match(source, /const next = trimSnapshots\(\[entry, \.\.\.current\]\.slice\(0, SNAPSHOTS_MAX\)\)/)
+})
+
+check('compare filters both snapshots by level and keyword before diffing', () => {
+  const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  assert.match(source, /function filterSnapshotLines\(lines, level, keyword\)/)
+  assert.match(source, /const baseLines = filterSnapshotLines\(base\.lines, compareLevel, compareKeyword\)/)
+  assert.match(source, /const targetLines = filterSnapshotLines\(target\.lines, compareLevel, compareKeyword\)/)
+  // Rows are matched by their level column, not by a substring of the message.
+  assert.match(source, /const current = rowLevel\(line\)/)
+  // A keyword must not be treated as a regex by accident.
+  assert.match(source, /line\.toLowerCase\(\)\.includes\(needle\)/)
+})
+
 check('plan mode refuses build/compile/deps/run/deploy/app before touching hvigor', async () => {
   const guarded = createHarmonyTools({ planMode: { get: () => ({ active: true }) } })[0]
   for (const action of ['build', 'compile', 'deps', 'run', 'deploy', 'app']) {

@@ -33,7 +33,10 @@ window.__ModuleLoader__.load({
     /** Snapshots live per browser so a baseline survives panel remounts. */
     const SNAPSHOT_KEY = 'harmony.logs.snapshots'
     /** Kept snapshots; the oldest is dropped so storage stays bounded. */
-    const SNAPSHOTS_MAX = 6
+    const SNAPSHOTS_MAX = 12
+    // localStorage is about 5 MB per origin and shared with other keys; keep
+    // our own budget so the panel cannot crowd out everyone else.
+    const SNAPSHOTS_BYTES_MAX = 1_500_000
     /** Rows kept per snapshot; mirrors the live buffer bound. */
     const SNAPSHOT_LINES_MAX = 4000
     /** How often the footer device badge refreshes while its popover is closed. */
@@ -98,8 +101,51 @@ window.__ModuleLoader__.load({
      */
     function storeSnapshots(snapshots) {
       try {
-        window.localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshots))
+        window.localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(trimSnapshots(snapshots)))
       } catch {}
+    }
+
+    /**
+     * Keep the newest snapshots while they fit both the count and the byte
+     * budget. A single oversized snapshot is still kept: dropping it silently
+     * would look like the panel lost the log.
+     * @param {{ lines: string[] }[]} snapshots newest first.
+     */
+    function trimSnapshots(snapshots) {
+      const kept = []
+      let bytes = 0
+      for (const entry of snapshots) {
+        const size = JSON.stringify(entry).length
+        if (kept.length > 0 && bytes + size > SNAPSHOTS_BYTES_MAX) break
+        kept.push(entry)
+        bytes += size
+      }
+      return kept
+    }
+
+    /** The level letter of a log row, or '' when the row has no level column. */
+    function rowLevel(line) {
+      const match = /\s([EWID])\s/.exec(line)
+      return match === null ? '' : match[1]
+    }
+
+    /**
+     * Compare-time filter: level and keyword are applied to both snapshots, so
+     * "did the errors change" stays readable when the window is dominated by
+     * system noise.
+     * @param {string[]} lines
+     * @param {'all'|'error'|'errorWarn'} level
+     * @param {string} keyword
+     */
+    function filterSnapshotLines(lines, level, keyword) {
+      const needle = keyword.trim().toLowerCase()
+      return lines.filter((line) => {
+        const current = rowLevel(line)
+        if (level === 'error' && current !== 'E') return false
+        if (level === 'errorWarn' && current !== 'E' && current !== 'W') return false
+        if (needle !== '' && !line.toLowerCase().includes(needle)) return false
+        return true
+      })
     }
 
     /**
@@ -184,6 +230,13 @@ window.__ModuleLoader__.load({
       compareBase: '基准',
       compareTarget: '当前',
       compareRun: '开始对比',
+      compareLevel: '级别',
+      levelAll: '全部',
+      levelError: '仅错误',
+      levelErrorWarn: '错误+警告',
+      compareKeyword: '关键字',
+      compareKeywordPlaceholder: '只对比包含该文字的日志行',
+      diffFiltered: '过滤后：底 {base} 行 / 目标 {target} 行',
       compareClose: '收起',
       diffSummary: '新增 {added} 行，消失 {removed} 行，相同 {same} 行',
       diffIdentical: '两份快照完全一致。',
@@ -297,6 +350,13 @@ window.__ModuleLoader__.load({
       compareBase: 'Baseline',
       compareTarget: 'Current',
       compareRun: 'Compare',
+      compareLevel: 'Level',
+      levelAll: 'All',
+      levelError: 'Errors',
+      levelErrorWarn: 'Errors + warnings',
+      compareKeyword: 'Keyword',
+      compareKeywordPlaceholder: 'compare only lines containing this text',
+      diffFiltered: 'After filter: base {base} lines / target {target} lines',
       compareClose: 'Hide',
       diffSummary: '{added} new lines, {removed} gone, {same} unchanged',
       diffIdentical: 'Both snapshots are identical.',
@@ -793,6 +853,8 @@ window.__ModuleLoader__.load({
       const [attempt, setAttempt] = React.useState(0)
       const [snapshots, setSnapshots] = React.useState(readSnapshots)
       const [compareOpen, setCompareOpen] = React.useState(false)
+      const [compareLevel, setCompareLevel] = React.useState('all')
+      const [compareKeyword, setCompareKeyword] = React.useState('')
       const [compareBase, setCompareBase] = React.useState('')
       const [compareTarget, setCompareTarget] = React.useState('')
       const [compareResult, setCompareResult] = React.useState(null)
@@ -1115,7 +1177,7 @@ window.__ModuleLoader__.load({
           lines: rows.slice(-SNAPSHOT_LINES_MAX),
         }
         setSnapshots((current) => {
-          const next = [entry, ...current].slice(0, SNAPSHOTS_MAX)
+          const next = trimSnapshots([entry, ...current].slice(0, SNAPSHOTS_MAX))
           storeSnapshots(next)
           return next
         })
@@ -1178,7 +1240,18 @@ window.__ModuleLoader__.load({
       const runCompare = () => {
         const base = snapshots.find((entry) => entry.id === compareBase)
         const target = snapshots.find((entry) => entry.id === compareTarget)
-        setCompareResult(base !== undefined && target !== undefined ? diffSnapshots(base, target) : null)
+        if (base === undefined || target === undefined) {
+          setCompareResult(null)
+          return
+        }
+        const baseLines = filterSnapshotLines(base.lines, compareLevel, compareKeyword)
+        const targetLines = filterSnapshotLines(target.lines, compareLevel, compareKeyword)
+        setCompareResult({
+          ...diffSnapshots({ lines: baseLines }, { lines: targetLines }),
+          baseCount: baseLines.length,
+          targetCount: targetLines.length,
+          filtered: compareLevel !== 'all' || compareKeyword.trim() !== '',
+        })
       }
 
       const toggleLevel = (level) => setLevels((current) => ({ ...current, [level]: current[level] !== true }))
@@ -1462,6 +1535,27 @@ window.__ModuleLoader__.load({
                 value: compareTarget,
                 onChange: (event) => setCompareTarget(event.target.value),
               }, snapshots.map((entry) => h('option', { key: entry.id, value: entry.id }, `${snapshotTitle(entry)} · ${entry.device} · ${entry.lines.length}`)))),
+            h('label', { className: 'hl-font' },
+              h('span', null, t('compareLevel')),
+              h('select', {
+                className: 'hl-control hl-select',
+                'aria-label': t('compareLevel'),
+                value: compareLevel,
+                onChange: (event) => setCompareLevel(event.target.value),
+              }, [
+                { value: 'all', label: t('levelAll') },
+                { value: 'error', label: t('levelError') },
+                { value: 'errorWarn', label: t('levelErrorWarn') },
+              ].map((option) => h('option', { key: option.value, value: option.value }, option.label)))),
+            h('label', { className: 'hl-font' },
+              h('span', null, t('compareKeyword')),
+              h('input', {
+                className: 'hl-control',
+                type: 'search',
+                value: compareKeyword,
+                placeholder: t('compareKeywordPlaceholder'),
+                onInput: (event) => setCompareKeyword(event.target.value),
+              })),
             h('button', { className: 'hl-control', type: 'button', onClick: runCompare }, t('compareRun')),
           ),
         snapshots.length === 0 ? null : h('div', { className: 'hl-snap-list' },
@@ -1491,6 +1585,9 @@ window.__ModuleLoader__.load({
           )),
         ),
         compareResult === null ? null : h('div', { className: 'hl-diff' },
+          compareResult.filtered
+            ? h('div', { className: 'hl-compare-hint' }, t('diffFiltered', { base: compareResult.baseCount, target: compareResult.targetCount }))
+            : null,
           h('div', null, compareResult.added.length === 0 && compareResult.removed.length === 0
             ? t('diffIdentical')
             : t('diffSummary', {

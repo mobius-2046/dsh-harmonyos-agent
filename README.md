@@ -253,6 +253,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 | 0.31.2 | 修：`deploy` / `run` 收到 `D:/...` 形式的路径会装不上（hdc 需要反斜杠） |
 | 0.31.1 | 修：两台设备的 `matrix` 被误判成「设备没连接」 |
 | 0.31.0 | `ui op=assert` 支持 `device=all`，结果为「N/M 台符合预期」+ 每台一行 |
+| 0.47.0 | 快照对比可先按级别/关键字过滤；快照上限 12 条并加 1.5 MB 字节预算 |
 | 0.46.0 | `ui op=assert matrix="id=登录;id=设置"`：每台设备断言不同的界面；`dumpLayout` 空树自动重试一次 |
 | 0.30.0 | `run` 支持 `matrix`：一条调用里按设备分工，结果是一张表 |
 | 0.29.0 | `app op=query` 查安装状态与版本 |
