@@ -87,7 +87,7 @@ dsh plugin --profile desktop add file:<本目录>
 | `logs` | 限时抓 `hilog`；给 `bundleName` 就按 pid 只留这个应用；`filter` 用子串或 `/regex/flags`；默认返回摘要（级别计数、重复折叠、错误列表），`view: "raw"` 看原文 |
 | `screenshot` | 抓设备截图到本地，返回路径与分辨率 |
 | `app` | `op=start/stop/clear/uninstall` 启停、清数据、卸载；`op=query` 查装没装、什么版本（只读） |
-| `doctor` | 一次查完 hdc / 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm；`fix: true` 时顺手修三类验得出的问题 |
+| `doctor` | 一次查完 hdc（版本与运行中的服务是否同一个二进制）/ 设备 / SDK / hvigorw / 签名 / shared 产物 / ohpm；`fix: true` 时顺手修三类验得出的问题 |
 | `sign` | 核对签名材料与证书有效期；`op=verify` 验已有签名；`op=rebuild` 让 hvigor 重签一次 |
 | `ui` | `dump` 读控件树；`find` 只查不点；`wait` 等文字出现/消失；`assert` 断言界面（文字、个数、指纹），`device=all` 逐台跑出一张表；`tap`/`input`/`key`/`swipe` 操作 |
 | `file` | `op=pull` 拉回、`op=send` 推上去；`op=ls` 列目录、`op=cat` 读文本开头、`op=du` 算目录大小（这三个只读，plan 模式下也能用） |
@@ -253,6 +253,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 | 0.31.2 | 修：`deploy` / `run` 收到 `D:/...` 形式的路径会装不上（hdc 需要反斜杠） |
 | 0.31.1 | 修：两台设备的 `matrix` 被误判成「设备没连接」 |
 | 0.31.0 | `ui op=assert` 支持 `device=all`，结果为「N/M 台符合预期」+ 每台一行 |
+| 0.48.0 | hdc 复用运行中服务的二进制，避免与 DevEco Studio 26 互相关闭对方的 hdc 服务 |
 | 0.47.0 | 快照对比可先按级别/关键字过滤；快照上限 12 条并加 1.5 MB 字节预算 |
 | 0.46.0 | `ui op=assert matrix="id=登录;id=设置"`：每台设备断言不同的界面；`dumpLayout` 空树自动重试一次 |
 | 0.30.0 | `run` 支持 `matrix`：一条调用里按设备分工，结果是一张表 |

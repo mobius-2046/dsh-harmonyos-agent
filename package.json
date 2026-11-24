@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-harmony",
-  "version": "0.47.0",
+  "version": "0.48.0",
   "private": true,
   "license": "MIT",
   "repository": {
@@ -34,7 +34,9 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node scripts/selftest.mjs"
+    "test": "node scripts/selftest.mjs",
+    "check": "node scripts/dev-check.mjs",
+    "ship": "node scripts/ship.mjs"
   },
   "engines": {
     "dsh": ">=0.2.1-rc.5 <0.3.0-0"

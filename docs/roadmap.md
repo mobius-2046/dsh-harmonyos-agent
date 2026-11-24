@@ -140,3 +140,22 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 另外两个次要的：**记住上次用的设备**（对方有 `preferred` 概念，我们总是取第一台），以及 **`switch_cwd`**（显式设工作目录，少传 `projectDir`；但要先评估与 DSH 会话工作目录的关系，避免两套概念打架）。
 
 **不借鉴**：工具粒度。对方 12 个 `hdc_*` 工具，我们刻意合成一个 `harmony`——每个 schema 每轮都要重发，二十来个工具大约吃掉一成上下文。他们用技能和分阶段工具面来补偿，我们选择让模型少背一点。
+
+## 界面：把 hilog 面板挪到右侧栏（用户 2026-11-24 提出，未排期）
+
+**问题**：日志面板现在挂在 `main`（按侧栏条目 id 选中的中央面板），和 `conversation` 互斥——看图要整屏切走，看完再切回来。用户要的是「中间对话、右边日志」同屏。
+
+**已核实的事实**（`cordis_inspect_query` client / `Slots.listSubTree` 全量拓扑 + `Service.listService`）：
+
+- 右侧栏存在：`rightbar`（single, root）→ `rightbar.session`（single, session）→ `sidebar.right.pane.tab`（keyed，按 `tab.kind` 的类型 id 分发内容）；同族还有 `sidebar.right.pane.tab.title`、`sidebar.right.tab.menu.item`、`sidebar.right.tab.document*`（文件预览那套）。
+- `layout` 服务可编程控制：`openRightbar(track: boolean, fullscreen: boolean)`、`closeRightbar()`、`selectPanel()`、`toggleSidebar()`。`track: true` 表示「中间列给右栏让出空间」，而不是浮在内容之上。
+- 但客户端服务面里**没有**「注册右侧标签类型」的公开入口；现有标签（document / guide）看起来是宿主自己声明的。
+
+**两条路**：
+
+- A（正路）：读 asar 内 `dsh-client-ui-sidebar` 的源码，确认标签是否可扩展。可扩展则注册 `sidebar.right.pane.tab` 的 key，再用 `layout.openRightbar(true, false)` 打开。
+- B（兜底）：在 `shell.overlay` 里画固定定位的右栏（自带标题栏与收起按钮），同时 `layout.openRightbar(true, false)` 让中间列让位——视觉上等价，代价是标签样式与宿主不完全一致。
+
+**验收**：对话在中间、日志在右侧同屏；关掉右栏对话恢复原宽；切换设备与轮询不打断正在输入的消息。
+
+**改动面**：`client.js`（把 `LogsPage` 的内容抽成可复用组件，右栏与 `main` 两个入口共用）、`cordis.patch.yml` 是否需要新槽位权限（注册时校验）、`package.json` 版本、README 界面一节、自测加「右侧栏注册存在」的源码断言。`main.harmony-logs` 保留，作为全屏看日志的入口。

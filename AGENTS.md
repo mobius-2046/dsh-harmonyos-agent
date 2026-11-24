@@ -29,9 +29,22 @@
 
 设备没就绪时不要空等，先做不需要真机的那部分（文档、纯逻辑自测），把真机回归留到设备回来之后。真机只有一台时按一台做，结论里写明「另一台未验证」。
 
+## 快速回路（一个 bug 不许超过 15 分钟）
+
+按这个顺序做，不要每步都单独占一轮对话：
+
+1. **定位**：一次 `grep` 拿到行号，再 `read` 带 `offset/limit` 读那一段。不要为同一个事实读第二遍。
+2. **改**：`edit` 只改必要的行；改完立刻 `npm run check`（语法 31 个文件 + 自测，约 18 秒，一条命令给结论）。
+3. **验**：分层——只改类型/解析逻辑用 `harmony compile`（约 45 秒）；要设备行为才用 `harmony run`（约 80–100 秒）。真机验证**放后台跑**（`run_in_background`），同时写文档，别干等。
+4. **发**：`npm run ship`（一次调用完成 API 推送 + tag + Release，免去 github.com:443 的重试与三次往返）。
+5. **装**：`remove_bundle` + `install_bundle` 一次调用；客户端改动攒到当晚最后一起重启，不要每改一点就重启一次。
+
+超过 15 分钟还没定位到根因，说明假设错了：停下来说明已排除了哪些可能，而不是继续改。
+
 ## 进入实施窗口时
 
-- 一次只发布一个变化（保证每个版本可回滚、CHANGELOG 可读）：改代码 → `npm test` → 真机 `node scripts/run-action.mjs …` → 递增版本并更新 `CHANGELOG.md` / `README.md` → `remove_bundle` + `install_bundle` → commit / push / tag / Release。做完立刻开始下一条，不必等下一晚。
+- 一次只发布一个变化（保证每个版本可回滚、CHANGELOG 可读）：改代码 → `npm run check` → 真机 `node scripts/run-action.mjs …` → 递增版本并更新 `CHANGELOG.md` / `README.md` → `remove_bundle` + `install_bundle` → `npm run ship`。做完立刻开始下一条，不必等下一晚。
+- 文档改动攒一次写完（README、CHANGELOG、roadmap 一起 edit），不要拆成三轮。
 - 真机回归必须用真实设备与真实工程，跑不通就如实写「未验证」，不要把没跑过的写成已验证。
 - 网络不稳时（github.com:443 常见）：push 用 `git -c credential.helper='!/tmp/gh-cred.sh'` 重试，仍不行就用 `%TEMP%\push-docs.mjs` 走 git data API，tag 走 `git/tags` + `git/refs`，Release 走 `%TEMP%\release.sh`。
 
