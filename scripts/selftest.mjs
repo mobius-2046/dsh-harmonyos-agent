@@ -624,6 +624,14 @@ check('client registers a footer device badge that polls and lists ids', () => {
   assert.ok(source.includes("t('devicesCount', { n: devices.length })"), 'popover must show the count')
 })
 
+check('client docks the log page as a right-side tab', () => {
+  const source = readFileSync(new URL('../client.js', import.meta.url), 'utf8')
+  assert.ok(source.includes("ctx.inject(['sidebarRightTabs']"), 'right tab service inject missing')
+  assert.ok(source.includes("name: 'sidebar.right.pane.tab',"), 'right tab body cell missing')
+  assert.ok(source.includes("name: 'sidebar.right.pane.tab.title',"), 'right tab title cell missing')
+  assert.ok(source.includes('kind: PANEL_ID'), 'tab kind must match the body key or the shell dispatches nothing')
+})
+
 check('parseDeviceInfo turns the device probe into fields and omits what is absent', () => {
   const sample = [
     'M=TaiHang2105',

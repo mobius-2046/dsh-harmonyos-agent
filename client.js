@@ -2073,6 +2073,39 @@ window.__ModuleLoader__.load({
           label: () => t('panel'),
         }, PanelIcon))
 
+        // The same log page, docked beside the conversation instead of replacing
+        // it: the shell hands out right-side tabs through sidebarRightTabs, and
+        // the body plus title are ordinary slot cells keyed by the tab kind.
+        ctx.inject(['sidebarRightTabs'], (tabCtx) => {
+          const disposers = []
+          try {
+            const tabs = tabCtx.sidebarRightTabs
+            if (!tabs || typeof tabs.register !== 'function') return
+            disposers.push(tabs.register({
+              id: PANEL_ID,
+              kind: PANEL_ID,
+              title: () => t('panel'),
+              guide: [{ id: PANEL_ID, order: 40, title: () => t('panel') }],
+            }))
+            disposers.push(tabCtx.slots.inject('sidebar.right.pane.tab', () => tabCtx.slots.register({
+              name: 'sidebar.right.pane.tab',
+              key: PANEL_ID,
+              locale: NS,
+            }, LogsPage)))
+            disposers.push(tabCtx.slots.inject('sidebar.right.pane.tab.title', () => tabCtx.slots.register({
+              name: 'sidebar.right.pane.tab.title',
+              key: PANEL_ID,
+            }, () => t('panel'))))
+          } catch (error) {
+            tabCtx.logger?.warn?.(`harmony right tab: ${error.message}`)
+          }
+          return () => {
+            for (const dispose of disposers.reverse()) {
+              try { dispose?.() } catch { /* already gone */ }
+            }
+          }
+        })
+
         // A footer badge rather than another panel entry: the device count has to
         // be visible without opening anything.
         ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({

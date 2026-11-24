@@ -111,7 +111,7 @@ if (files.length) {
 // so a flaky github.com cannot silently rewind the working tree).
 if (sha !== base) {
   try {
-    execFileSync('git', ['update-ref', 'refs/heads/main', sha], { cwd: root })
+    execFileSync('git', ['update-ref', 'refs/heads/main', sha], { cwd: root, stdio: 'ignore' })
   } catch {}
 }
 
