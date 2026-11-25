@@ -253,6 +253,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 | 0.31.2 | 修：`deploy` / `run` 收到 `D:/...` 形式的路径会装不上（hdc 需要反斜杠） |
 | 0.31.1 | 修：两台设备的 `matrix` 被误判成「设备没连接」 |
 | 0.31.0 | `ui op=assert` 支持 `device=all`，结果为「N/M 台符合预期」+ 每台一行 |
+| 0.50.0 | `ui op=assert` 可给 `waitMs`：点完按钮等界面稳定再判，避免读到上一屏 |
 | 0.49.0 | hilog 面板可停靠在右侧栏（对话留在中间），全屏入口保留 |
 | 0.48.0 | hdc 复用运行中服务的二进制，避免与 DevEco Studio 26 互相关闭对方的 hdc 服务 |
 | 0.47.0 | 快照对比可先按级别/关键字过滤；快照上限 12 条并加 1.5 MB 字节预算 |

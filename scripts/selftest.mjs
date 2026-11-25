@@ -17,6 +17,7 @@ import { createLogRoutes } from '../lib/hilog.js'
 import { parseDeviceInfo } from '../lib/deviceinfo.js'
 import { locateDocs, lookupApi, readDoc, searchDocs } from '../lib/docs.js'
 import { explain } from '../lib/errorcodes.js'
+import { assertEventually } from '../lib/uiassert.js'
 import { waitUntil } from '../lib/wait.js'
 import { assertUi, uiFingerprint } from '../lib/uiassert.js'
 import { absoluteMaterials, inspectCertificate, parseSigningConfigs, pickSignInput, signingReport } from '../lib/signing.js'
@@ -630,6 +631,27 @@ check('client docks the log page as a right-side tab', () => {
   assert.ok(source.includes("name: 'sidebar.right.pane.tab',"), 'right tab body cell missing')
   assert.ok(source.includes("name: 'sidebar.right.pane.tab.title',"), 'right tab title cell missing')
   assert.ok(source.includes('kind: PANEL_ID'), 'tab kind must match the body key or the shell dispatches nothing')
+})
+
+check('assertEventually retries until the screen catches up', async () => {
+  let clock = 0
+  let reads = 0
+  const result = await assertEventually(async () => {
+    reads += 1
+    return { ok: reads >= 3, nodeCount: 7 }
+  }, { timeoutMs: 5000, intervalMs: 400, now: () => clock, sleep: async (ms) => { clock += ms } })
+  assert.equal(result.ok, true, 'third read should pass')
+  assert.equal(result.attempts, 3, 'attempts must count every read')
+  assert.equal(result.elapsedMs, 800, 'elapsed must come from the clock, not the number of waits')
+  const single = await assertEventually(async () => ({ ok: false }), { timeoutMs: 0, now: () => clock, sleep: async () => { throw new Error('must not sleep without a deadline') } })
+  assert.equal(single.attempts, 1, 'no deadline means exactly one read')
+})
+
+check('ui op=assert accepts waitMs and retries the same single read', () => {
+  const source = readFileSync(new URL('../lib/tools.js', import.meta.url), 'utf8')
+  assert.ok(source.includes("waitMs: { type: 'number'"), 'schema must expose waitMs')
+  assert.ok(source.includes('const retrying = (attempt) => assertEventually(attempt'), 'assert must retry through assertEventually')
+  assert.ok(source.includes('const runOne = (targetDevice) => assertEventually('), 'multi-device path must retry too')
 })
 
 check('parseDeviceInfo turns the device probe into fields and omits what is absent', () => {

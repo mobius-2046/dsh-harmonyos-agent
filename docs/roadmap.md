@@ -141,7 +141,7 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 
 **不借鉴**：工具粒度。对方 12 个 `hdc_*` 工具，我们刻意合成一个 `harmony`——每个 schema 每轮都要重发，二十来个工具大约吃掉一成上下文。他们用技能和分阶段工具面来补偿，我们选择让模型少背一点。
 
-## 界面：把 hilog 面板挪到右侧栏（用户 2026-11-24 提出，未排期）
+## 界面：把 hilog 面板挪到右侧栏（用户 2026-11-24 提出）✅ 0.49.0
 
 **问题**：日志面板现在挂在 `main`（按侧栏条目 id 选中的中央面板），和 `conversation` 互斥——看图要整屏切走，看完再切回来。用户要的是「中间对话、右边日志」同屏。
 
@@ -157,5 +157,12 @@ DevEco 开着构建时，hvigor 抢同一份 `.hvigor/outputs/build-logs/build.l
 - B（兜底）：在 `shell.overlay` 里画固定定位的右栏（自带标题栏与收起按钮），同时 `layout.openRightbar(true, false)` 让中间列让位——视觉上等价，代价是标签样式与宿主不完全一致。
 
 **验收**：对话在中间、日志在右侧同屏；关掉右栏对话恢复原宽；切换设备与轮询不打断正在输入的消息。
+
+**已交付（0.49.0）**：正路（A）成立——宿主有未出现在 Service 目录里的 `sidebarRightTabs` 服务
+（`dsh-context` 就是这么注册自己的右侧标签的）：`register({ id, kind, title, guide })` 声明标签类型，
+再把正文与标题分别注册进 `sidebar.right.pane.tab` 与 `sidebar.right.pane.tab.title`（key = 标签 id，
+`kind` 必须与正文 key 一致，否则宿主不渲染任何内容）。实测重启后 `sidebar.right.pane.tab` 的占用者里
+出现 `harmony-logs`（active），与面板共用同一个 `LogsPage` 组件；全屏入口保留。
+未做：打开右栏仍需用户点一下（宿主没有「按 id 打开某个标签」的公开方法，只有 `layout.openRightbar(track, fullscreen)`）。
 
 **改动面**：`client.js`（把 `LogsPage` 的内容抽成可复用组件，右栏与 `main` 两个入口共用）、`cordis.patch.yml` 是否需要新槽位权限（注册时校验）、`package.json` 版本、README 界面一节、自测加「右侧栏注册存在」的源码断言。`main.harmony-logs` 保留，作为全屏看日志的入口。
