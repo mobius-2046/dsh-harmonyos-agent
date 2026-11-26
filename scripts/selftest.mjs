@@ -7,7 +7,7 @@
 // changing lib/tools.js.
 
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, existsSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { apply, SKILLS } from '../index.js'
@@ -34,7 +34,7 @@ import { resolveHvigorIsolation } from '../lib/locate.js'
 import { handleCodeRequest } from '../lib/coderoutes.js'
 import { HDC_THRESHOLDS, classifyHdcServer, formatHdcServer, mergeHdcSnapshots } from '../lib/hdcwatch.js'
 import { apiLevels, checkApiCompat, extractApiImports, formatApiCompat, listSources, moduleSince, sinceOf } from '../lib/apicheck.js'
-import { createHarmonyTools, filterByPid, filterLogLines, findUiNode, findUiNodes, flattenUi, inferTarget, missingSharedModules, nativePath, parseBounds, parseBundleDump, parseFaultLog, parseHvigorOutput, parseOutput, parseTargets, signingState } from '../lib/tools.js'
+import { createHarmonyTools, hspFreshness, filterByPid, filterLogLines, findUiNode, findUiNodes, flattenUi, inferTarget, missingSharedModules, nativePath, parseBounds, parseBundleDump, parseFaultLog, parseHvigorOutput, parseOutput, parseTargets, signingState } from '../lib/tools.js'
 
 const results = []
 // Optional: only used to parse cordis.patch.yml. Falls back to a regex check
@@ -928,6 +928,37 @@ await checkAsync('diagnostic budget ends the pass on the shared deadline', async
   assert.equal((await tight.probe('again', async () => 3)).status, 'ok')
   assert.ok(tight.remaining() < 400)
   assert.ok(tight.elapsedMs >= 60, 'the timed-out probe still spends its time')
+})
+
+check('hsp freshness skips a rebuild only when every artifact is newer than its sources', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-hsp-fresh-'))
+  try {
+    const moduleDir = join(dir, 'mapSdk')
+    mkdirSync(join(moduleDir, 'src/main'), { recursive: true })
+    writeFileSync(join(moduleDir, 'src/main/module.json5'), '{ "module": { "name": "mapSdk", "type": "shared" } }')
+    writeFileSync(join(dir, 'build-profile.json5'), JSON.stringify({
+      app: { products: [{ name: 'default' }] },
+      modules: [{ name: 'mapSdk', srcPath: './mapSdk', targets: [{ name: 'default' }] }],
+    }))
+    const fresh0 = hspFreshness(dir)
+    assert.equal(fresh0.fresh, false, 'no artifact yet means not fresh')
+    assert.deepEqual(fresh0.missing, ['mapSdk'])
+
+    const outputDir = join(moduleDir, 'build/default/outputs/default')
+    mkdirSync(outputDir, { recursive: true })
+    writeFileSync(join(outputDir, 'mapSdk-default-signed.hsp'), 'hsp')
+    const later = new Date(Date.now() + 5_000)
+    utimesSync(join(outputDir, 'mapSdk-default-signed.hsp'), later, later)
+    const fresh1 = hspFreshness(dir)
+    assert.equal(fresh1.fresh, true, 'artifact newer than sources is fresh')
+    assert.equal(fresh1.modules, 1)
+
+    const touched = new Date(Date.now() + 10_000)
+    utimesSync(join(moduleDir, 'src/main/module.json5'), touched, touched)
+    assert.equal(hspFreshness(dir).fresh, false, 'a source newer than the artifact is stale')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 check('build lock refuses a live holder and reclaims a dead one', () => {
