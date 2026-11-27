@@ -1,3 +1,11 @@
+## 0.52.0
+
+- 签名材料指向别人目录时会点名说清：工程从另一个 Windows 账号/机器拷来时，
+  `build-profile.json5` 里的 `C:/Users/<别人>/...` 路径会留着、文件却不在，
+  以前只在 `SignHap` 报一句 `[00303107] Configuration Error`。现在 `sign` 与 `doctor`
+  都会直接写「签名材料指向用户 mym 的目录（当前 wuwei）」，并给出「去 DevEco 的
+  Project Structure → Signing Configs 重新勾一次自动签名」这一条修法。
+
 ## 0.51.0
 
 - `hsp: true` 不再无条件全量重建：先比对每个 shared 模块的产物与源码 mtime，

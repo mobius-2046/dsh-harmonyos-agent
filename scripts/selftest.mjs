@@ -20,7 +20,7 @@ import { explain } from '../lib/errorcodes.js'
 import { assertEventually } from '../lib/uiassert.js'
 import { waitUntil } from '../lib/wait.js'
 import { assertUi, uiFingerprint } from '../lib/uiassert.js'
-import { absoluteMaterials, inspectCertificate, parseSigningConfigs, pickSignInput, signingReport } from '../lib/signing.js'
+import { absoluteMaterials, foreignProfileOwner, inspectCertificate, parseSigningConfigs, pickSignInput, signingReport } from '../lib/signing.js'
 import { acquireBuildLock, lockPath, releaseBuildLock } from '../lib/lock.js'
 import { attributeFailure } from '../lib/attribute.js'
 import { formatAssertMatrixRow, formatMatrixRow, parseAssertMatrix, parseDeviceMatrix } from '../lib/devicematrix.js'
@@ -458,14 +458,14 @@ check('hdc install failures become structured errors', () => {
 })
 
 const sandbox = mkdtempSync(join(tmpdir(), 'dsh-harmony-selftest-'))
-function writeProject({ signing }) {
+function writeProject({ signing, certpath = 'a.cer' }) {
   mkdirSync(join(sandbox, 'AppScope'), { recursive: true })
   mkdirSync(join(sandbox, 'entry', 'src', 'main'), { recursive: true })
   writeFileSync(join(sandbox, 'AppScope', 'app.json5'), '{ "app": { "bundleName": "com.example.demo" } }')
   writeFileSync(join(sandbox, 'build-profile.json5'), [
     '{',
     '  "app": {',
-    `    ${signing ? '"signingConfigs": [ { "name": "default", "material": { "certpath": "a.cer", "profile": "a.p7b" } } ],' : '"signingConfigs": [],'}`,
+    `    ${signing ? `"signingConfigs": [ { "name": "default", "material": { "certpath": "${certpath}", "profile": "a.p7b" } } ],` : '"signingConfigs": [],'}`,
     '    "products": [{ "name": "default" }]',
     '  },',
     '  "modules": [{ "name": "entry", "srcPath": "./entry" }]',
@@ -477,6 +477,20 @@ function writeProject({ signing }) {
 check('signingState sees a configured material block', () => {
   writeProject({ signing: true })
   assert.equal(signingState(sandbox).configured, true)
+})
+
+check('a signing config copied from another user profile is called out', () => {
+  assert.equal(foreignProfileOwner(['C:/Users/mym/.ohos/a.cer'], 'wuwei'), 'mym')
+  assert.equal(foreignProfileOwner(['C:/Users/wuwei/.ohos/a.cer'], 'wuwei'), null)
+  assert.equal(foreignProfileOwner(['/home/wuwei/.ohos/a.cer'], 'wuwei'), null, 'posix paths are not Windows profiles')
+  assert.equal(foreignProfileOwner([], 'wuwei'), null)
+})
+
+check('signingState names the foreign owner when the paths belong to someone else', () => {
+  writeProject({ signing: true, certpath: 'C:/Users/mym/.ohos/config/a.cer' })
+  const state = signingState(sandbox)
+  assert.equal(state.configured, true)
+  assert.equal(state.foreignOwner, 'mym')
 })
 
 check('signingState reports an empty signingConfigs as not configured', () => {

@@ -241,6 +241,7 @@ harmony  action=docs  op=config  sdk=D:\SDK\Openharmony-6.0\20\ets\api
 
 | 版本 | 主要变化 |
 |---|---|
+| 0.52.0 | `sign` / `doctor` 会指出签名材料指向另一个 Windows 账号（从别的机器拷来的工程） |
 | 0.38.0 | 只读代码面板：文件树 + 源码 + 按名字找符号 |
 | 0.37.0 | `trace`：抓一段 hitrace 并给摘要，原始文件交 perfetto（不做火焰图） |
 | 0.36.0 | `db`：列应用数据库、跑只读 SQL（拒写操作），真机验证 |
